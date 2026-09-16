@@ -1,0 +1,322 @@
+import { useState, useMemo } from 'react'
+import { Plus, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { clsx } from 'clsx'
+
+import { CategoryFilter } from '@/components/wardrobe/CategoryFilter'
+import { ClothingCard } from '@/components/wardrobe/ClothingCard'
+import { AddItemModal } from '@/components/wardrobe/AddItemModal'
+import { ItemDetailModal } from '@/components/wardrobe/ItemDetailModal'
+import { Button } from '@/components/ui/Button'
+import { useWardrobeStore } from '@/store/wardrobeStore'
+import { useUserStore } from '@/store/userStore'
+import { SAMPLE_WARDROBE_ITEMS } from '@/lib/sampleData'
+import type { ClothingItem, ClothingCategory } from '@/types'
+
+export function WardrobePage() {
+  const navigate = useNavigate()
+  const profile = useUserStore((s) => s.profile)
+  const { items, addItem, updateItem, removeItem, toggleFavourite, activeCategory, setActiveCategory } =
+    useWardrobeStore()
+
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editItem, setEditItem] = useState<ClothingItem | undefined>()
+  const [detailItem, setDetailItem] = useState<ClothingItem | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+
+  // Computed counts per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const item of items) {
+      counts[item.category] = (counts[item.category] ?? 0) + 1
+    }
+    return counts
+  }, [items])
+
+  // Filtered items
+  const filteredItems = useMemo(() => {
+    let result = activeCategory === 'all' ? items : items.filter((i) => i.category === activeCategory)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          i.colour.some((c) => c.toLowerCase().includes(q)) ||
+          i.material?.toLowerCase().includes(q) ||
+          i.brand?.toLowerCase().includes(q)
+      )
+    }
+    return result
+  }, [items, activeCategory, searchQuery])
+
+  const handleAddSamples = () => {
+    for (const item of SAMPLE_WARDROBE_ITEMS) {
+      addItem({ ...item, id: crypto.randomUUID() })
+    }
+  }
+
+  const handleSaveItem = (item: ClothingItem) => {
+    if (editItem) {
+      updateItem(item.id, item)
+    } else {
+      addItem(item)
+    }
+    setEditItem(undefined)
+  }
+
+  const handleEdit = (item: ClothingItem) => {
+    setDetailItem(null)
+    setEditItem(item)
+    setShowAddModal(true)
+  }
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Remove this item from your Kloset?')) {
+      removeItem(id)
+      setDetailItem(null)
+    }
+  }
+
+  const handleIncrementWorn = (item: ClothingItem) => {
+    updateItem(item.id, { timesWorn: item.timesWorn + 1 })
+    setDetailItem((prev) => prev ? { ...prev, timesWorn: prev.timesWorn + 1 } : null)
+  }
+
+  const openAdd = () => {
+    setEditItem(undefined)
+    setShowAddModal(true)
+  }
+
+  const name = profile?.name?.split(' ')[0] ?? 'your'
+
+  return (
+    <div className="min-h-screen bg-cream-50 pt-16 lg:pt-20 pb-28 md:pb-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        {/* ── Page header ── */}
+        <div className="flex items-start justify-between gap-4 py-8 lg:py-10">
+          <div>
+            <p className="text-gold text-xs font-medium uppercase tracking-ultra-wide mb-1">
+              Your wardrobe
+            </p>
+            <h1 className="font-display text-3xl lg:text-4xl font-medium text-charcoal-900">
+              {name}&apos;s Kloset
+            </h1>
+            <p className="text-charcoal-400 text-sm mt-1">
+              {items.length} {items.length === 1 ? 'piece' : 'pieces'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowSearch((v) => !v)}
+              className={clsx(
+                'p-2.5 rounded-full transition-colors',
+                showSearch
+                  ? 'bg-charcoal-900 text-cream-50'
+                  : 'bg-white text-charcoal-600 hover:bg-cream-100 shadow-card'
+              )}
+              aria-label="Search wardrobe"
+            >
+              <Search size={18} />
+            </button>
+            <Button size="sm" onClick={openAdd} className="gap-1.5">
+              <Plus size={16} />
+              Add Item
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Search bar ── */}
+        {showSearch && (
+          <div className="mb-6 animate-fade-up">
+            <div className="relative">
+              <Search
+                size={16}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none"
+              />
+              <input
+                autoFocus
+                type="search"
+                placeholder="Search by name, colour, material…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-cream-200 bg-white text-sm text-charcoal-900 placeholder:text-charcoal-400 focus:outline-none focus:ring-2 focus:ring-charcoal-900 focus:border-charcoal-900 transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── Category filter ── */}
+        {items.length > 0 && (
+          <div className="mb-6">
+            <CategoryFilter
+              active={activeCategory}
+              counts={categoryCounts}
+              onChange={(cat) => setActiveCategory(cat as ClothingCategory | 'all')}
+            />
+          </div>
+        )}
+
+        {/* ── Content ── */}
+        {items.length === 0 ? (
+          <EmptyState onAdd={openAdd} onLoadSamples={handleAddSamples} />
+        ) : filteredItems.length === 0 ? (
+          <NoResultsState query={searchQuery} category={activeCategory} onClear={() => {
+            setSearchQuery('')
+            setActiveCategory('all')
+          }} />
+        ) : (
+          <>
+            {/* AI Stylist nudge (when wardrobe has items) */}
+            {items.length >= 3 && (
+              <div
+                onClick={() => navigate('/stylist')}
+                className="mb-6 p-4 rounded-2xl bg-charcoal-900 flex items-center justify-between gap-4 cursor-pointer hover:bg-charcoal-700 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gold/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={16} className="text-gold" />
+                  </div>
+                  <div>
+                    <p className="text-cream-50 text-sm font-medium">
+                      Ready for a styled outfit?
+                    </p>
+                    <p className="text-cream-300/60 text-xs">
+                      Your AI stylist can build an outfit from your Kloset
+                    </p>
+                  </div>
+                </div>
+                <SlidersHorizontal
+                  size={16}
+                  className="text-cream-300/50 group-hover:text-cream-300 transition-colors flex-shrink-0"
+                />
+              </div>
+            )}
+
+            {/* Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              {filteredItems.map((item) => (
+                <ClothingCard
+                  key={item.id}
+                  item={item}
+                  onClick={() => setDetailItem(item)}
+                  onToggleFavourite={(e) => {
+                    e.stopPropagation()
+                    toggleFavourite(item.id)
+                  }}
+                />
+              ))}
+
+              {/* Add item card */}
+              <AddItemCard onClick={openAdd} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Modals ── */}
+      <AddItemModal
+        open={showAddModal}
+        onClose={() => { setShowAddModal(false); setEditItem(undefined) }}
+        onSave={handleSaveItem}
+        editItem={editItem}
+      />
+
+      <ItemDetailModal
+        item={detailItem}
+        open={!!detailItem}
+        onClose={() => setDetailItem(null)}
+        onEdit={() => detailItem && handleEdit(detailItem)}
+        onDelete={() => detailItem && handleDelete(detailItem.id)}
+        onToggleFavourite={() => {
+          if (!detailItem) return
+          toggleFavourite(detailItem.id)
+          setDetailItem((prev) => prev ? { ...prev, isFavourite: !prev.isFavourite } : null)
+        }}
+        onIncrementWorn={() => detailItem && handleIncrementWorn(detailItem)}
+      />
+    </div>
+  )
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState({
+  onAdd,
+  onLoadSamples,
+}: {
+  onAdd: () => void
+  onLoadSamples: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-20 px-4">
+      <div className="text-7xl mb-6 select-none">👗</div>
+      <h2 className="font-display text-2xl font-medium text-charcoal-900 mb-2">
+        Your Kloset is empty
+      </h2>
+      <p className="text-charcoal-400 text-base leading-relaxed max-w-sm mb-8">
+        Start adding your clothes to get outfit recommendations tailored to what you actually own.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button size="lg" onClick={onAdd} className="gap-2">
+          <Plus size={16} />
+          Add your first item
+        </Button>
+        <Button variant="secondary" size="lg" onClick={onLoadSamples}>
+          Load sample wardrobe
+        </Button>
+      </div>
+      <p className="text-charcoal-300 text-xs mt-5">
+        Sample wardrobe gives you 10 items to explore the app
+      </p>
+    </div>
+  )
+}
+
+function NoResultsState({
+  query,
+  category,
+  onClear,
+}: {
+  query: string
+  category: string
+  onClear: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+      <div className="text-5xl mb-4 select-none">🔍</div>
+      <h3 className="font-display text-xl font-medium text-charcoal-900 mb-2">
+        No items found
+      </h3>
+      <p className="text-charcoal-400 text-sm mb-6">
+        {query
+          ? `Nothing matched "${query}" in ${category === 'all' ? 'your wardrobe' : category}`
+          : `You don't have anything in ${category} yet`}
+      </p>
+      <button
+        onClick={onClear}
+        className="text-sm text-charcoal-700 underline underline-offset-4 hover:text-charcoal-900 transition-colors"
+      >
+        Clear filters
+      </button>
+    </div>
+  )
+}
+
+function AddItemCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-3xl border-2 border-dashed border-cream-300 hover:border-charcoal-400 hover:bg-cream-100 transition-all duration-200 flex flex-col items-center justify-center gap-2 aspect-[3/4] group"
+    >
+      <div className="w-10 h-10 rounded-full bg-cream-200 group-hover:bg-cream-300 flex items-center justify-center transition-colors">
+        <Plus size={18} className="text-charcoal-500" />
+      </div>
+      <span className="text-xs font-medium text-charcoal-400 group-hover:text-charcoal-600 transition-colors">
+        Add item
+      </span>
+    </button>
+  )
+}
