@@ -4,6 +4,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { colourNameToHex } from '@/lib/colourUtils'
+import { useItemImage } from '@/hooks/useItemImage'
 import type { ClothingItem } from '@/types'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -34,6 +35,8 @@ export function ItemDetailModal({
   onToggleFavourite,
   onIncrementWorn,
 }: ItemDetailModalProps) {
+  const imageUrl = useItemImage(item)
+
   if (!item) return null
 
   const primaryColour = item.colour[0]
@@ -46,8 +49,8 @@ export function ItemDetailModal({
       <div className="pb-8">
         {/* Image */}
         <div className="aspect-[4/3] w-full overflow-hidden">
-          {item.imageUrl ? (
-            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+          {imageUrl ? (
+            <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
           ) : (
             <div
               className="w-full h-full flex items-center justify-center"

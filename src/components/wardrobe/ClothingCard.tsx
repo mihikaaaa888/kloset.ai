@@ -2,6 +2,7 @@ import { Heart } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { ClothingItem } from '@/types'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
+import { useItemImage } from '@/hooks/useItemImage'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   tops: '👕',
@@ -28,6 +29,7 @@ interface ClothingCardProps {
 }
 
 export function ClothingCard({ item, onClick, onToggleFavourite }: ClothingCardProps) {
+  const imageUrl = useItemImage(item)
   const primaryColour = item.colour[0]
   const bgHex = primaryColour ? colourNameToHex(primaryColour) : '#EDE9E2'
   const isLight = isLightColour(bgHex)
@@ -39,9 +41,9 @@ export function ClothingCard({ item, onClick, onToggleFavourite }: ClothingCardP
     >
       {/* Image / Placeholder */}
       <div className="aspect-[3/4] relative overflow-hidden">
-        {item.imageUrl ? (
+        {imageUrl ? (
           <img
-            src={item.imageUrl}
+            src={imageUrl}
             alt={item.name}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />

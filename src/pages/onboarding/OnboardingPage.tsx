@@ -244,7 +244,7 @@ export function OnboardingPage() {
         )}
         {step === 8 && (
           <Step8Gender
-            value={draft.genderStylePreference}
+            value={draft.genderStylePreference ?? ''}
             onChange={(v) => update('genderStylePreference', v)}
             onNext={goNext}
           />

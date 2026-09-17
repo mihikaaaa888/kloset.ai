@@ -67,12 +67,17 @@ export interface ClothingItem {
   id: string
   name: string
   category: ClothingCategory
-  // imageUrl is structured to support both local data URLs (V1) and remote URLs (future)
+  subcategory?: string
+  // imageId: IndexedDB key for the stored Blob (new path, survives refresh)
+  imageId?: string
+  // imageUrl: legacy base64 data URL or remote URL; kept for backwards compatibility
   imageUrl: string | null
   imageSource: 'local' | 'remote' | 'none'
   colour: string[]
   material?: string
   pattern: Pattern
+  fit?: string
+  formality?: string
   seasons: Season[]
   occasions: Occasion[]
   brand?: string

@@ -424,7 +424,7 @@ type ClothingItemResult = OutfitItemResult
 // ─── Styling notes per role ───────────────────────────────────────────────────
 
 function getStylingNote(
-  item: ClothingItem,
+  _item: ClothingItem,
   role: OutfitItemResult['role'],
   occasion: Occasion
 ): string | undefined {

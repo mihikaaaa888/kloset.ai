@@ -1,6 +1,7 @@
 import { Trash2, Heart } from 'lucide-react'
 import { clsx } from 'clsx'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
+import { useItemImage } from '@/hooks/useItemImage'
 import type { Outfit, ClothingItem } from '@/types'
 
 interface ResolvedOutfitItem {
@@ -83,6 +84,8 @@ export function SavedOutfitCard({ outfit, resolvedItems, onClick, onUnsave }: Sa
 }
 
 function MosaicCell({ item, role }: { item: ClothingItem | null; role: string }) {
+  const imageUrl = useItemImage(item)
+
   if (!item) {
     return <div className="bg-cream-200" />
   }
@@ -96,8 +99,8 @@ function MosaicCell({ item, role }: { item: ClothingItem | null; role: string })
       className="relative flex items-center justify-center overflow-hidden"
       style={{ backgroundColor: bgHex }}
     >
-      {item.imageUrl ? (
-        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+      {imageUrl ? (
+        <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
       ) : (
         <span
           className={clsx(

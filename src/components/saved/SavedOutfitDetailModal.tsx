@@ -4,6 +4,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
+import { useItemImage } from '@/hooks/useItemImage'
 import type { Outfit, ClothingItem } from '@/types'
 
 interface ResolvedOutfitItem {
@@ -183,6 +184,7 @@ function OutfitDetailTile({
   featured?: boolean
 }) {
   const { item, role } = resolved
+  const imageUrl = useItemImage(item)
 
   if (!item) {
     return (
@@ -204,10 +206,10 @@ function OutfitDetailTile({
     <div className="rounded-2xl overflow-hidden bg-white shadow-card">
       <div
         className={clsx('relative flex items-center justify-center', featured ? 'aspect-[4/3]' : 'aspect-[3/2]')}
-        style={item.imageUrl ? undefined : { backgroundColor: bgHex }}
+        style={imageUrl ? undefined : { backgroundColor: bgHex }}
       >
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
         ) : (
           <span className={clsx('text-3xl select-none', isLight ? 'opacity-60' : 'opacity-80')}>
             {CATEGORY_EMOJI[item.category] ?? '👗'}

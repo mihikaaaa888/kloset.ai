@@ -3,6 +3,7 @@ import { clsx } from 'clsx'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
+import { useItemImage } from '@/hooks/useItemImage'
 import type { OutfitSuggestion, OutfitItemResult } from '@/lib/stylist'
 
 // ─── Occasion + weather display labels ───────────────────────────────────────
@@ -208,6 +209,7 @@ function OutfitItemTile({
   featured?: boolean
 }) {
   const { item, role, stylingNote } = result
+  const imageUrl = useItemImage(item)
   const primaryColour = item.colour[0]
   const bgHex = primaryColour ? colourNameToHex(primaryColour) : '#EDE9E2'
   const isLight = isLightColour(bgHex)
@@ -216,9 +218,9 @@ function OutfitItemTile({
     <div className="rounded-3xl overflow-hidden bg-white shadow-card">
       {/* Image / placeholder */}
       <div className={clsx('relative', featured ? 'aspect-[4/3]' : 'aspect-[3/2]')}>
-        {item.imageUrl ? (
+        {imageUrl ? (
           <img
-            src={item.imageUrl}
+            src={imageUrl}
             alt={item.name}
             className="w-full h-full object-cover"
           />

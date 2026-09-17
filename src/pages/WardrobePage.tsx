@@ -10,6 +10,7 @@ import { ItemDetailModal } from '@/components/wardrobe/ItemDetailModal'
 import { Button } from '@/components/ui/Button'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useUserStore } from '@/store/userStore'
+import { deleteImage } from '@/lib/imageStorage'
 import { SAMPLE_WARDROBE_ITEMS } from '@/lib/sampleData'
 import type { ClothingItem, ClothingCategory } from '@/types'
 
@@ -73,6 +74,8 @@ export function WardrobePage() {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Remove this item from your Kloset?')) {
+      const item = items.find((i) => i.id === id)
+      if (item?.imageId) deleteImage(item.imageId).catch(() => {})
       removeItem(id)
       setDetailItem(null)
     }
