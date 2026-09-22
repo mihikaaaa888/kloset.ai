@@ -8,7 +8,7 @@ interface ModalProps {
   onClose: () => void
   title?: string
   children: ReactNode
-  /** 'sheet' slides up from bottom on all screens; 'dialog' is centered */
+  footer?: ReactNode
   variant?: 'dialog' | 'sheet'
   maxWidth?: string
 }
@@ -18,6 +18,7 @@ export function Modal({
   onClose,
   title,
   children,
+  footer,
   variant = 'dialog',
   maxWidth = 'max-w-lg',
 }: ModalProps) {
@@ -37,57 +38,64 @@ export function Modal({
 
   const content =
     variant === 'sheet' ? (
-      // Bottom sheet — slides up from bottom
       <div className="fixed inset-0 z-50 flex flex-col justify-end">
         <div
-          className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm animate-fade-in"
+          className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-fade-in"
           onClick={onClose}
         />
-        <div className="relative bg-cream-50 rounded-t-3xl shadow-lifted animate-slide-up max-h-[92vh] flex flex-col">
-          {/* Handle */}
+        <div className="relative bg-white rounded-t-3xl shadow-lifted animate-slide-up max-h-[92vh] flex flex-col">
           <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full bg-cream-300" />
+            <div className="w-10 h-1 rounded-full bg-text-primary/15" />
           </div>
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200 flex-shrink-0">
-              <h2 className="font-serif text-xl font-medium text-charcoal-900">{title}</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-text-primary/10 flex-shrink-0">
+              <h2 className="font-serif text-xl font-medium text-text-primary">{title}</h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-100 transition-colors"
+                className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-text-primary/5 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
           )}
           <div className="overflow-y-auto flex-1">{children}</div>
+          {footer && (
+            <div className="flex-shrink-0 border-t border-text-primary/10 px-6 py-4">
+              {footer}
+            </div>
+          )}
         </div>
       </div>
     ) : (
-      // Centered dialog
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm animate-fade-in"
+          className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm animate-fade-in"
           onClick={onClose}
         />
         <div
           className={clsx(
-            'relative bg-cream-50 rounded-3xl shadow-lifted animate-fade-up w-full flex flex-col',
+            'relative bg-white rounded-3xl shadow-lifted animate-fade-up w-full flex flex-col',
             maxWidth,
             'max-h-[90vh]'
           )}
         >
           {title && (
-            <div className="flex items-center justify-between px-6 py-5 border-b border-cream-200 flex-shrink-0">
-              <h2 className="font-serif text-xl font-medium text-charcoal-900">{title}</h2>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-text-primary/10 flex-shrink-0">
+              <h2 className="font-serif text-xl font-medium text-text-primary">{title}</h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-100 transition-colors"
+                className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-text-primary/5 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
           )}
           <div className="overflow-y-auto flex-1">{children}</div>
+          {footer && (
+            <div className="flex-shrink-0 border-t border-text-primary/10 px-6 py-4">
+              {footer}
+            </div>
+          )}
         </div>
       </div>
     )

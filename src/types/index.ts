@@ -37,6 +37,7 @@ export interface UserProfile {
   genderStylePreference?: 'feminine' | 'masculine' | 'androgynous' | 'no-preference'
   recommendationFrequency: RecommendationFrequency
   onboardingComplete: boolean
+  styleItemSelections?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -87,6 +88,50 @@ export interface ClothingItem {
   lastWorn?: string
   createdAt: string
   updatedAt: string
+  // Set when the item was added from the catalog
+  catalogId?: string
+}
+
+// ─── Catalog ──────────────────────────────────────────────────────────────────
+
+export interface CatalogItem {
+  id: string
+  name: string
+  category: ClothingCategory
+  subcategory?: string
+  colours: string[]
+  material: string
+  pattern: Pattern
+  seasons: Season[]
+  occasions: Occasion[]
+  styleAesthetics: StylePreference[]
+  description: string
+  priceRange: 'budget' | 'mid' | 'premium' | 'luxury'
+  fit?: string
+  formality?: string
+  /** Reference photo — for browsing/inspiration, not the user's own item photo. */
+  imageUrl: string
+  /** Approximate buy price in USD, derived from priceRange. */
+  estimatedPrice: number
+  /** Approximate weekly rental price in USD. */
+  rentPricePerWeek: number
+  /** Opens a live shopping search for this piece (not a specific listing we can't verify). */
+  shopUrl: string
+  /** Opens a live rental-marketplace search for this piece. */
+  rentUrl: string
+}
+
+// ─── Web shopping search (Exa) ─────────────────────────────────────────────────
+
+/** A real, live product/page result from a retailer's site, via Exa search. */
+export interface WebShopResult {
+  id: string
+  title: string
+  url: string
+  domain: string
+  retailer: string
+  snippet: string
+  imageUrl: string | null
 }
 
 // ─── Outfits ──────────────────────────────────────────────────────────────────

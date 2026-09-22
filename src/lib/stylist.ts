@@ -61,12 +61,14 @@ export interface StylistEngineResult {
 /**
  * Generate an outfit suggestion.
  * `attempt` increments on "try another" to get a varied result.
+ * `pinnedItem` is always included in the outfit (for "Style This Item" mode).
  */
 export async function generateOutfit(
   request: StyleRequest,
   wardrobe: ClothingItem[],
   profile: UserProfile | null,
-  attempt = 0
+  attempt = 0,
+  pinnedItem?: ClothingItem
 ): Promise<StylistEngineResult> {
   // Simulate network latency for a realistic feel
   await new Promise((r) => setTimeout(r, 900 + Math.random() * 500))
@@ -78,7 +80,7 @@ export async function generateOutfit(
   // }
   // ──────────────────────────────────────────────────────────────────────────
 
-  return mockEngine(request, wardrobe, profile, attempt)
+  return mockEngine(request, wardrobe, profile, attempt, pinnedItem)
 }
 
 // ─── Colour data ──────────────────────────────────────────────────────────────
@@ -441,7 +443,8 @@ function mockEngine(
   request: StyleRequest,
   wardrobe: ClothingItem[],
   profile: UserProfile | null,
-  attempt: number
+  attempt: number,
+  pinnedItem?: ClothingItem
 ): StylistEngineResult {
   if (wardrobe.length === 0) {
     return { suggestion: null, error: 'Your Kloset is empty. Add some items first.' }
@@ -462,36 +465,52 @@ function mockEngine(
     })
   }
 
-  // 1. Try a dress first for certain occasions
+  // 0. If a pinned item was provided, add it first
+  if (pinnedItem) {
+    const roleMap: Record<string, OutfitItemResult['role']> = {
+      tops: 'top', bottoms: 'bottom', dresses: 'dress', outerwear: 'outerwear', shoes: 'shoes', accessories: 'accessory',
+    }
+    addItem(pinnedItem, roleMap[pinnedItem.category] ?? 'top')
+  }
+
+  // 1. Try a dress first for certain occasions (skip if pinned item is a dress or top/bottom)
+  const hasPinnedBase = pinnedItem && ['tops', 'bottoms', 'dresses'].includes(pinnedItem.category)
   const preferDress = ['date-night', 'formal', 'special-event'].includes(request.occasion)
-  if (preferDress && Math.random() + attempt * 0.2 < 0.6) {
+  if (!hasPinnedBase && preferDress && Math.random() + attempt * 0.2 < 0.6) {
     const dress = pickBest(wardrobe, 'dresses', request, profile, selected, attempt)
     if (dress) addItem(dress, 'dress')
   }
 
-  // 2. If no dress, pick top + bottom
+  // 2. If no dress, pick top + bottom (skip categories covered by pinned item)
   if (!resultItems.some((r) => r.role === 'dress')) {
-    const top = pickBest(wardrobe, 'tops', request, profile, selected, attempt)
-    if (top) addItem(top, 'top')
-
-    const bottom = pickBest(wardrobe, 'bottoms', request, profile, selected, attempt)
-    if (bottom) addItem(bottom, 'bottom')
+    if (!pinnedItem || pinnedItem.category !== 'tops') {
+      const top = pickBest(wardrobe, 'tops', request, profile, selected, attempt)
+      if (top) addItem(top, 'top')
+    }
+    if (!pinnedItem || pinnedItem.category !== 'bottoms') {
+      const bottom = pickBest(wardrobe, 'bottoms', request, profile, selected, attempt)
+      if (bottom) addItem(bottom, 'bottom')
+    }
   }
 
   // 3. Outerwear if weather warrants
   const needsOuterwear = ['cold', 'cool', 'rainy'].includes(request.weather)
-  if (needsOuterwear) {
+  if (needsOuterwear && pinnedItem?.category !== 'outerwear') {
     const outer = pickBest(wardrobe, 'outerwear', request, profile, selected, attempt)
     if (outer) addItem(outer, 'outerwear')
   }
 
   // 4. Shoes
-  const shoes = pickBest(wardrobe, 'shoes', request, profile, selected, attempt)
-  if (shoes) addItem(shoes, 'shoes')
+  if (pinnedItem?.category !== 'shoes') {
+    const shoes = pickBest(wardrobe, 'shoes', request, profile, selected, attempt)
+    if (shoes) addItem(shoes, 'shoes')
+  }
 
   // 5. Accessories (max 1)
-  const accessory = pickBest(wardrobe, 'accessories', request, profile, selected, attempt)
-  if (accessory) addItem(accessory, 'accessory')
+  if (pinnedItem?.category !== 'accessories') {
+    const accessory = pickBest(wardrobe, 'accessories', request, profile, selected, attempt)
+    if (accessory) addItem(accessory, 'accessory')
+  }
 
   // Must have at least one base garment
   const hasBase = resultItems.some((r) => ['top', 'bottom', 'dress'].includes(r.role))

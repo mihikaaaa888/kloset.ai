@@ -12,11 +12,14 @@ import {
   frequencyOptions,
   genderStyleOptions,
 } from './onboardingData'
+import { CATALOGUE_ITEMS, CATALOGUE_CATEGORIES } from './catalogueData'
 import { SelectChip } from '@/components/ui/SelectChip'
 import { ColourSwatch } from '@/components/ui/ColourSwatch'
 import { TextInput } from '@/components/ui/TextInput'
 import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store/userStore'
+import { useAuth } from '@/contexts/AuthContext'
+import { upsertProfile } from '@/lib/profileService'
 import type { UserProfile, StylePreference, Occasion, AgeRange, RecommendationFrequency } from '@/types'
 
 // ─── Draft state ─────────────────────────────────────────────────────────────
@@ -26,6 +29,7 @@ interface OnboardingDraft {
   ageRange: AgeRange | ''
   occupation: string
   lifestyle: string
+  styleItemSelections: string[]
   stylePreferences: StylePreference[]
   typicalOccasions: Occasion[]
   favouriteColours: string[]
@@ -39,6 +43,7 @@ const INITIAL_DRAFT: OnboardingDraft = {
   ageRange: '',
   occupation: '',
   lifestyle: '',
+  styleItemSelections: [],
   stylePreferences: [],
   typicalOccasions: [],
   favouriteColours: [],
@@ -47,7 +52,7 @@ const INITIAL_DRAFT: OnboardingDraft = {
   recommendationFrequency: '',
 }
 
-const TOTAL_STEPS = 9
+const TOTAL_STEPS = 10
 
 function profileToDraft(profile: UserProfile): OnboardingDraft {
   return {
@@ -55,6 +60,7 @@ function profileToDraft(profile: UserProfile): OnboardingDraft {
     ageRange: profile.ageRange,
     occupation: profile.occupation,
     lifestyle: profile.lifestyle,
+    styleItemSelections: profile.styleItemSelections ?? [],
     stylePreferences: profile.stylePreferences,
     typicalOccasions: profile.typicalOccasions,
     favouriteColours: profile.favouriteColours,
@@ -71,6 +77,7 @@ export function OnboardingPage() {
   const location = useLocation()
   const setProfile = useUserStore((s) => s.setProfile)
   const profile = useUserStore((s) => s.profile)
+  const { user } = useAuth()
 
   const isEditMode = new URLSearchParams(location.search).get('edit') === 'true'
 
@@ -113,12 +120,13 @@ export function OnboardingPage() {
       case 1: return draft.name.trim().length >= 2
       case 2: return draft.ageRange !== ''
       case 3: return draft.occupation.trim().length >= 2
-      case 4: return draft.stylePreferences.length >= 1
-      case 5: return draft.typicalOccasions.length >= 1
-      case 6: return true // colours optional but encouraged
-      case 7: return true // avoid colours optional
-      case 8: return true // gender optional
-      case 9: return draft.recommendationFrequency !== ''
+      case 4: return true // catalogue selection optional
+      case 5: return draft.stylePreferences.length >= 1
+      case 6: return draft.typicalOccasions.length >= 1
+      case 7: return true // colours optional
+      case 8: return true // avoid colours optional
+      case 9: return true // gender optional
+      case 10: return draft.recommendationFrequency !== ''
       default: return false
     }
   }
@@ -144,14 +152,15 @@ export function OnboardingPage() {
     if (step > 1) transition(step - 1, 'back')
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const now = new Date().toISOString()
-    const profile: UserProfile = {
-      id: crypto.randomUUID(),
+    const newProfile: UserProfile = {
+      id: user?.id ?? crypto.randomUUID(),
       name: draft.name.trim(),
       ageRange: draft.ageRange as AgeRange,
       occupation: draft.occupation.trim(),
       lifestyle: draft.lifestyle.trim() || draft.occupation.trim(),
+      styleItemSelections: draft.styleItemSelections,
       stylePreferences: draft.stylePreferences,
       typicalOccasions: draft.typicalOccasions,
       favouriteColours: draft.favouriteColours,
@@ -162,7 +171,10 @@ export function OnboardingPage() {
       createdAt: now,
       updatedAt: now,
     }
-    setProfile(profile)
+    setProfile(newProfile)
+    if (user) {
+      await upsertProfile(user.id, newProfile)
+    }
     navigate(isEditMode ? '/profile' : '/wardrobe')
   }
 
@@ -208,23 +220,30 @@ export function OnboardingPage() {
           />
         )}
         {step === 4 && (
-          <Step4Style
+          <Step4Catalogue
+            selected={draft.styleItemSelections}
+            onToggle={(id) => toggleArray('styleItemSelections', id)}
+            onNext={goNext}
+          />
+        )}
+        {step === 5 && (
+          <Step5Style
             selected={draft.stylePreferences}
             onToggle={(v) => toggleArray('stylePreferences', v)}
             onNext={goNext}
             canAdvance={canAdvance()}
           />
         )}
-        {step === 5 && (
-          <Step5Occasions
+        {step === 6 && (
+          <Step6Occasions
             selected={draft.typicalOccasions}
             onToggle={(v) => toggleArray('typicalOccasions', v)}
             onNext={goNext}
             canAdvance={canAdvance()}
           />
         )}
-        {step === 6 && (
-          <Step6Colours
+        {step === 7 && (
+          <StepColours
             title="What colours do you love?"
             subtitle="Select the tones you gravitate towards."
             selected={draft.favouriteColours}
@@ -232,8 +251,8 @@ export function OnboardingPage() {
             onNext={goNext}
           />
         )}
-        {step === 7 && (
-          <Step6Colours
+        {step === 8 && (
+          <StepColours
             title="Any colours to avoid?"
             subtitle="We'll keep these out of your recommendations."
             selected={draft.avoidColours}
@@ -242,15 +261,15 @@ export function OnboardingPage() {
             skipLabel="None, I'm open to anything"
           />
         )}
-        {step === 8 && (
-          <Step8Gender
+        {step === 9 && (
+          <Step9Gender
             value={draft.genderStylePreference ?? ''}
             onChange={(v) => update('genderStylePreference', v)}
             onNext={goNext}
           />
         )}
-        {step === 9 && (
-          <Step9Frequency
+        {step === 10 && (
+          <Step10Frequency
             name={draft.name}
             value={draft.recommendationFrequency}
             onChange={(v) => update('recommendationFrequency', v)}
@@ -263,7 +282,7 @@ export function OnboardingPage() {
   )
 }
 
-// ─── Individual Steps ─────────────────────────────────────────────────────────
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function StepHeading({
   eyebrow,
@@ -275,17 +294,17 @@ function StepHeading({
   subtitle?: string
 }) {
   return (
-    <div className="mb-10">
+    <div className="mb-8">
       {eyebrow && (
-        <p className="text-gold text-xs font-medium uppercase tracking-ultra-wide mb-3">
+        <p className="text-text-primary/50 text-xs font-medium uppercase tracking-ultra-wide mb-3">
           {eyebrow}
         </p>
       )}
-      <h2 className="font-display text-3xl sm:text-4xl font-medium text-charcoal-900 leading-tight mb-3">
+      <h2 className="font-display text-3xl sm:text-4xl font-medium text-text-primary leading-tight mb-3">
         {title}
       </h2>
       {subtitle && (
-        <p className="text-charcoal-500 text-base leading-relaxed">{subtitle}</p>
+        <p className="text-text-muted text-base leading-relaxed">{subtitle}</p>
       )}
     </div>
   )
@@ -431,8 +450,128 @@ function Step3Occupation({
   )
 }
 
-// Step 4 — Style
-function Step4Style({
+// Step 4 — Style Catalogue
+function Step4Catalogue({
+  selected,
+  onToggle,
+  onNext,
+}: {
+  selected: string[]
+  onToggle: (id: string) => void
+  onNext: () => void
+}) {
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+
+  const filtered = activeCategory === 'all'
+    ? CATALOGUE_ITEMS
+    : CATALOGUE_ITEMS.filter((item) => item.category === activeCategory)
+
+  return (
+    <div>
+      <StepHeading
+        eyebrow="Style inspiration"
+        title="Pick pieces that speak to you"
+        subtitle="Tap anything that catches your eye — this builds your style DNA. You don't own these; you just love them."
+      />
+
+      {/* Category tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
+        {CATALOGUE_CATEGORIES.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => setActiveCategory(cat.value)}
+            className={clsx(
+              'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 flex-shrink-0',
+              activeCategory === cat.value
+                ? 'bg-dark-purple text-butter-yellow'
+                : 'bg-text-primary/8 text-text-muted hover:bg-text-primary/15'
+            )}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Count pill */}
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-text-primary/10 text-butter-yellow text-xs font-semibold px-3 py-1 rounded-full">
+            <Check size={11} />
+            {selected.length} selected
+          </span>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {filtered.map((item) => {
+          const isSelected = selected.includes(item.id)
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onToggle(item.id)}
+              className={clsx(
+                'relative rounded-xl overflow-hidden aspect-[3/4] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow',
+                isSelected
+                  ? 'ring-2 ring-butter-yellow ring-offset-1 scale-[0.97]'
+                  : 'hover:scale-[0.97] hover:shadow-medium'
+              )}
+            >
+              <img
+                src={item.imageUrl}
+                alt={item.label}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement
+                  el.style.display = 'none'
+                  const parent = el.parentElement
+                  if (parent) parent.style.backgroundColor = item.fallbackColor
+                }}
+              />
+              {/* subtle bottom gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+              {/* label */}
+              <p className="absolute bottom-0 inset-x-0 px-2 pb-2 text-white text-2xs font-medium leading-tight">
+                {item.label}
+              </p>
+              {/* checkmark */}
+              {isSelected && (
+                <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-dark-purple flex items-center justify-center shadow-soft">
+                  <Check size={11} className="text-butter-yellow" />
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Actions */}
+      <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
+        <Button size="lg" onClick={onNext} className="group">
+          {selected.length > 0
+            ? `Continue with ${selected.length} picks`
+            : 'Continue'}
+          <ArrowRight
+            size={16}
+            className="transition-transform duration-200 group-hover:translate-x-1"
+          />
+        </Button>
+        {selected.length === 0 && (
+          <button
+            onClick={onNext}
+            className="text-text-muted hover:text-text-primary text-sm underline underline-offset-4 transition-colors"
+          >
+            Skip for now
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Step 5 — Style aesthetics (visual cards)
+function Step5Style({
   selected,
   onToggle,
   onNext,
@@ -447,43 +586,56 @@ function Step4Style({
     <div>
       <StepHeading
         eyebrow="Your aesthetic"
-        title="How would you describe your style?"
-        subtitle="Pick all that feel like you — your wardrobe can contain multitudes."
+        title="Which styles feel like you?"
+        subtitle="Pick all that resonate — your wardrobe can contain multitudes."
       />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {styleOptions.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onToggle(opt.value)}
-            className={clsx(
-              'text-left p-4 rounded-2xl border transition-all duration-200',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal-900',
-              selected.includes(opt.value)
-                ? 'bg-charcoal-900 text-cream-50 border-charcoal-900'
-                : 'bg-white text-charcoal-700 border-cream-200 hover:border-charcoal-300'
-            )}
-          >
-            <div className="text-2xl mb-2">{opt.emoji}</div>
-            <div className="font-medium text-sm">{opt.label}</div>
-            <div
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {styleOptions.map((opt) => {
+          const isSelected = selected.includes(opt.value)
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onToggle(opt.value)}
               className={clsx(
-                'text-2xs mt-0.5',
-                selected.includes(opt.value) ? 'text-cream-300' : 'text-charcoal-400'
+                'relative rounded-2xl overflow-hidden aspect-[3/4] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow',
+                isSelected
+                  ? 'ring-2 ring-butter-yellow ring-offset-2 scale-[0.98]'
+                  : 'hover:scale-[0.97] hover:shadow-medium'
               )}
             >
-              {opt.description}
-            </div>
-          </button>
-        ))}
+              <img
+                src={opt.imageUrl}
+                alt={opt.label}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const el = e.currentTarget
+                  el.style.display = 'none'
+                  const parent = el.parentElement
+                  if (parent) parent.style.backgroundColor = opt.accent
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-3 text-left">
+                <p className="text-white text-sm font-semibold leading-none">{opt.label}</p>
+                <p className="text-white/60 text-2xs mt-0.5">{opt.description}</p>
+              </div>
+              {isSelected && (
+                <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-dark-purple flex items-center justify-center shadow-soft">
+                  <Check size={13} className="text-butter-yellow" />
+                </div>
+              )}
+            </button>
+          )
+        })}
       </div>
       <StepActions onNext={onNext} canAdvance={canAdvance} />
     </div>
   )
 }
 
-// Step 5 — Occasions
-function Step5Occasions({
+// Step 6 — Occasions
+function Step6Occasions({
   selected,
   onToggle,
   onNext,
@@ -506,7 +658,6 @@ function Step5Occasions({
           <SelectChip
             key={opt.value}
             label={opt.label}
-            emoji={opt.emoji}
             selected={selected.includes(opt.value)}
             onClick={() => onToggle(opt.value)}
           />
@@ -517,8 +668,8 @@ function Step5Occasions({
   )
 }
 
-// Step 6 & 7 — Colours (reused for both)
-function Step6Colours({
+// Steps 7 & 8 — Colours (reused for both)
+function StepColours({
   title,
   subtitle,
   selected,
@@ -545,7 +696,7 @@ function Step6Colours({
               selected={selected.includes(colour.name)}
               onClick={() => onToggle(colour.name)}
             />
-            <span className="text-2xs text-charcoal-400 text-center max-w-[48px] leading-tight">
+            <span className="text-2xs text-text-muted text-center max-w-[48px] leading-tight">
               {colour.name}
             </span>
           </div>
@@ -562,7 +713,7 @@ function Step6Colours({
         {skipLabel && (
           <button
             onClick={onNext}
-            className="text-charcoal-400 hover:text-charcoal-700 text-sm underline underline-offset-4 transition-colors"
+            className="text-text-muted hover:text-text-primary text-sm underline underline-offset-4 transition-colors"
           >
             {skipLabel}
           </button>
@@ -572,8 +723,8 @@ function Step6Colours({
   )
 }
 
-// Step 8 — Gender style preference
-function Step8Gender({
+// Step 9 — Gender style preference
+function Step9Gender({
   value,
   onChange,
   onNext,
@@ -594,7 +745,6 @@ function Step8Gender({
           <SelectChip
             key={opt.value}
             label={opt.label}
-            emoji={opt.emoji}
             selected={value === opt.value}
             onClick={() => {
               onChange(opt.value as UserProfile['genderStylePreference'])
@@ -606,7 +756,7 @@ function Step8Gender({
       <div className="mt-10">
         <button
           onClick={onNext}
-          className="text-charcoal-400 hover:text-charcoal-700 text-sm underline underline-offset-4 transition-colors"
+          className="text-text-muted hover:text-text-primary text-sm underline underline-offset-4 transition-colors"
         >
           Skip this question
         </button>
@@ -615,8 +765,8 @@ function Step8Gender({
   )
 }
 
-// Step 9 — Frequency
-function Step9Frequency({
+// Step 10 — Frequency
+function Step10Frequency({
   name,
   value,
   onChange,
@@ -645,10 +795,10 @@ function Step9Frequency({
             className={clsx(
               'flex items-center justify-between p-4 rounded-2xl border text-left',
               'transition-all duration-200',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal-900',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow',
               value === opt.value
-                ? 'bg-charcoal-900 text-cream-50 border-charcoal-900'
-                : 'bg-white text-charcoal-700 border-cream-200 hover:border-charcoal-300'
+                ? 'bg-dark-purple text-butter-yellow border-dark-purple'
+                : 'bg-white text-text-primary border-text-primary/15 hover:border-text-primary/40'
             )}
           >
             <div>
@@ -656,14 +806,14 @@ function Step9Frequency({
               <div
                 className={clsx(
                   'text-xs mt-0.5',
-                  value === opt.value ? 'text-cream-300' : 'text-charcoal-400'
+                  value === opt.value ? 'text-butter-yellow/70' : 'text-text-muted'
                 )}
               >
                 {opt.description}
               </div>
             </div>
             {value === opt.value && (
-              <Check size={16} className="text-cream-50 flex-shrink-0" />
+              <Check size={16} className="text-butter-yellow flex-shrink-0" />
             )}
           </button>
         ))}
@@ -673,7 +823,7 @@ function Step9Frequency({
           size="lg"
           onClick={onNext}
           disabled={!canAdvance}
-          className="group !bg-charcoal-900"
+          className="group"
         >
           <Sparkles size={16} />
           Build My Kloset

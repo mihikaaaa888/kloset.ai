@@ -1,4 +1,4 @@
-import { Trash2, Heart } from 'lucide-react'
+import { Trash2, Heart, Shirt } from 'lucide-react'
 import { clsx } from 'clsx'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
 import { useItemImage } from '@/hooks/useItemImage'
@@ -20,10 +20,6 @@ interface SavedOutfitCardProps {
 const OCCASION_LABEL: Record<string, string> = {
   work: 'Work', casual: 'Casual', 'date-night': 'Date Night', formal: 'Formal',
   weekend: 'Weekend', travel: 'Travel', 'special-event': 'Special Event', gym: 'Gym',
-}
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  tops: '👕', bottoms: '👖', dresses: '👗', outerwear: '🧥', shoes: '👟', accessories: '💍',
 }
 
 export function SavedOutfitCard({ outfit, resolvedItems, onClick, onUnsave }: SavedOutfitCardProps) {
@@ -102,14 +98,10 @@ function MosaicCell({ item, role }: { item: ClothingItem | null; role: string })
       {imageUrl ? (
         <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
       ) : (
-        <span
-          className={clsx(
-            'text-2xl select-none',
-            isLight ? 'opacity-60' : 'opacity-80'
-          )}
-        >
-          {CATEGORY_EMOJI[item.category] ?? '👗'}
-        </span>
+        <Shirt
+          size={20}
+          className={clsx('select-none', isLight ? 'text-text-primary opacity-30' : 'text-white opacity-40')}
+        />
       )}
       {/* Role tag */}
       <span

@@ -13,13 +13,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-charcoal-900 text-cream-50 hover:bg-charcoal-700 active:bg-charcoal-800 shadow-soft',
+    'bg-dark-purple text-butter-yellow hover:bg-deep-purple active:bg-dark-purple shadow-soft',
   secondary:
-    'bg-cream-200 text-charcoal-800 hover:bg-cream-300 active:bg-cream-300',
+    'bg-white text-text-primary hover:bg-soft-butter active:bg-soft-butter border border-text-primary/15',
   ghost:
-    'bg-transparent text-charcoal-700 hover:bg-cream-100 active:bg-cream-200',
+    'bg-transparent text-text-primary hover:bg-text-primary/5 active:bg-text-primary/10',
   outline:
-    'border border-charcoal-900 bg-transparent text-charcoal-900 hover:bg-charcoal-900 hover:text-cream-50',
+    'border border-text-primary/30 bg-transparent text-text-primary hover:bg-dark-purple hover:text-butter-yellow hover:border-dark-purple',
 }
 
 const sizeClasses: Record<Size, string> = {
@@ -51,7 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'inline-flex items-center justify-center gap-2',
           'font-sans font-medium uppercase',
           'rounded-full transition-all duration-200 ease-out',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal-900 focus-visible:ring-offset-2',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow focus-visible:ring-offset-2',
           'disabled:opacity-40 disabled:cursor-not-allowed',
           variantClasses[variant],
           sizeClasses[size],

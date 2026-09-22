@@ -1,4 +1,4 @@
-import { Trash2, Sparkles, ChevronRight } from 'lucide-react'
+import { Trash2, Sparkles, ChevronRight, Shirt } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -27,10 +27,7 @@ const OCCASION_LABEL: Record<string, string> = {
   weekend: 'Weekend', travel: 'Travel', 'special-event': 'Special Event', gym: 'Gym',
 }
 const WEATHER_LABEL: Record<string, string> = {
-  hot: '☀️ Hot', warm: '🌤 Warm', cool: '🍂 Cool', cold: '❄️ Cold', rainy: '🌧 Rainy',
-}
-const CATEGORY_EMOJI: Record<string, string> = {
-  tops: '👕', bottoms: '👖', dresses: '👗', outerwear: '🧥', shoes: '👟', accessories: '💍',
+  hot: 'Hot', warm: 'Warm', cool: 'Cool', cold: 'Cold', rainy: 'Rainy',
 }
 
 export function SavedOutfitDetailModal({
@@ -211,9 +208,10 @@ function OutfitDetailTile({
         {imageUrl ? (
           <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
         ) : (
-          <span className={clsx('text-3xl select-none', isLight ? 'opacity-60' : 'opacity-80')}>
-            {CATEGORY_EMOJI[item.category] ?? '👗'}
-          </span>
+          <Shirt
+            size={28}
+            className={clsx('select-none', isLight ? 'text-text-primary opacity-30' : 'text-white opacity-40')}
+          />
         )}
         <span className="absolute top-2 left-2 text-2xs font-medium uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-sm text-charcoal-700 capitalize">
           {role}

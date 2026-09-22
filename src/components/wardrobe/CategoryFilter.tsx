@@ -4,17 +4,16 @@ import type { ClothingCategory } from '@/types'
 interface FilterOption {
   value: ClothingCategory | 'all'
   label: string
-  emoji: string
 }
 
 const FILTERS: FilterOption[] = [
-  { value: 'all', label: 'All', emoji: '✦' },
-  { value: 'tops', label: 'Tops', emoji: '👕' },
-  { value: 'bottoms', label: 'Bottoms', emoji: '👖' },
-  { value: 'dresses', label: 'Dresses', emoji: '👗' },
-  { value: 'outerwear', label: 'Outerwear', emoji: '🧥' },
-  { value: 'shoes', label: 'Shoes', emoji: '👟' },
-  { value: 'accessories', label: 'Accessories', emoji: '💍' },
+  { value: 'all', label: 'All' },
+  { value: 'tops', label: 'Tops' },
+  { value: 'bottoms', label: 'Bottoms' },
+  { value: 'dresses', label: 'Dresses' },
+  { value: 'outerwear', label: 'Outerwear' },
+  { value: 'shoes', label: 'Shoes' },
+  { value: 'accessories', label: 'Accessories' },
 ]
 
 interface CategoryFilterProps {
@@ -39,18 +38,17 @@ export function CategoryFilter({ active, counts, onChange }: CategoryFilterProps
             className={clsx(
               'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap',
               'transition-all duration-200 flex-shrink-0',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal-900',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow',
               isActive
-                ? 'bg-charcoal-900 text-cream-50'
-                : 'bg-white text-charcoal-600 border border-cream-200 hover:border-charcoal-300 hover:text-charcoal-900'
+                ? 'bg-dark-purple text-butter-yellow'
+                : 'bg-white text-text-primary border border-text-primary/15 hover:border-text-primary/40 hover:text-text-primary'
             )}
           >
-            <span className="text-sm leading-none">{filter.emoji}</span>
             {filter.label}
             <span
               className={clsx(
                 'text-2xs tabular-nums px-1.5 py-0.5 rounded-full',
-                isActive ? 'bg-white/20 text-cream-50' : 'bg-cream-200 text-charcoal-500'
+                isActive ? 'bg-white/20 text-butter-yellow/80' : 'bg-text-primary/8 text-text-muted'
               )}
             >
               {count}

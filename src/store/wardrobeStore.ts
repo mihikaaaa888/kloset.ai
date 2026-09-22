@@ -5,6 +5,7 @@ import type { ClothingItem, ClothingCategory } from '@/types'
 interface WardrobeStore {
   items: ClothingItem[]
   activeCategory: ClothingCategory | 'all'
+  setItems: (items: ClothingItem[]) => void
   addItem: (item: ClothingItem) => void
   updateItem: (id: string, updates: Partial<ClothingItem>) => void
   removeItem: (id: string) => void
@@ -18,6 +19,8 @@ export const useWardrobeStore = create<WardrobeStore>()(
     (set, get) => ({
       items: [],
       activeCategory: 'all',
+
+      setItems: (items) => set({ items }),
 
       addItem: (item) =>
         set((state) => ({ items: [...state.items, item] })),

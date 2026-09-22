@@ -1,17 +1,8 @@
-import { Heart } from 'lucide-react'
+import { Heart, Sparkles } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { ClothingItem } from '@/types'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
 import { useItemImage } from '@/hooks/useItemImage'
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  tops: '👕',
-  bottoms: '👖',
-  dresses: '👗',
-  outerwear: '🧥',
-  shoes: '👟',
-  accessories: '💍',
-}
 
 const CATEGORY_LABEL: Record<string, string> = {
   tops: 'Top',
@@ -22,13 +13,49 @@ const CATEGORY_LABEL: Record<string, string> = {
   accessories: 'Accessory',
 }
 
+// SVG silhouettes used as no-image placeholders — one per category.
+const CATEGORY_ICON: Record<string, React.ReactNode> = {
+  tops: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <path d="M16 8L6 16l6 4v18h24V20l6-4-10-8c0 0-2 6-8 6s-8-6-8-6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+  ),
+  bottoms: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <path d="M10 10h28l-4 28h-8l-2-14-2 14h-8L10 10z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+  ),
+  dresses: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <path d="M18 6l-8 12 6 2-6 22h28l-6-22 6-2L30 6c0 0-2 6-6 6s-6-6-6-6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+  ),
+  outerwear: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <path d="M14 6L4 16l8 4v20h24V20l8-4L34 6l-4 2-6 6-6-6-4-2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+  ),
+  shoes: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <path d="M8 32c0 0 4-14 12-16l4-8 12 4-4 8s6 2 8 12H8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+  ),
+  accessories: (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity={0.35}>
+      <circle cx="24" cy="24" r="14" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="24" cy="24" r="6" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+  ),
+}
+
 interface ClothingCardProps {
   item: ClothingItem
   onClick: () => void
   onToggleFavourite: (e: React.MouseEvent) => void
+  onStyleThis?: (e: React.MouseEvent) => void
 }
 
-export function ClothingCard({ item, onClick, onToggleFavourite }: ClothingCardProps) {
+export function ClothingCard({ item, onClick, onToggleFavourite, onStyleThis }: ClothingCardProps) {
   const imageUrl = useItemImage(item)
   const primaryColour = item.colour[0]
   const bgHex = primaryColour ? colourNameToHex(primaryColour) : '#EDE9E2'
@@ -60,26 +87,33 @@ export function ClothingCard({ item, onClick, onToggleFavourite }: ClothingCardP
             'transition-all duration-200',
             item.isFavourite
               ? 'bg-white shadow-soft text-rose-500'
-              : 'bg-white/70 backdrop-blur-sm text-charcoal-400 opacity-0 group-hover:opacity-100 hover:text-rose-400'
+              : 'bg-white/70 backdrop-blur-sm text-text-muted opacity-0 group-hover:opacity-100 hover:text-rose-400'
           )}
         >
-          <Heart
-            size={14}
-            className={item.isFavourite ? 'fill-rose-500' : ''}
-          />
+          <Heart size={14} className={item.isFavourite ? 'fill-rose-500' : ''} />
         </button>
 
-        {/* Category pill overlay */}
-        <div className="absolute bottom-3 left-3">
-          <span className="text-2xs font-medium uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-charcoal-700">
+        {/* Bottom bar */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-3">
+          <span className="text-2xs font-medium uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-text-primary">
             {CATEGORY_LABEL[item.category]}
           </span>
+          {onStyleThis && (
+            <button
+              onClick={onStyleThis}
+              aria-label="Style this item"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dark-purple text-butter-yellow text-2xs font-medium opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-deep-purple"
+            >
+              <Sparkles size={10} />
+              Style this
+            </button>
+          )}
         </div>
       </div>
 
       {/* Card footer */}
       <div className="p-3 pb-4">
-        <p className="text-sm font-medium text-charcoal-900 truncate">{item.name}</p>
+        <p className="text-sm font-medium text-text-primary truncate">{item.name}</p>
         <div className="flex items-center gap-1.5 mt-1.5">
           {item.colour.slice(0, 4).map((c) => (
             <div
@@ -90,7 +124,7 @@ export function ClothingCard({ item, onClick, onToggleFavourite }: ClothingCardP
             />
           ))}
           {item.colour.length > 4 && (
-            <span className="text-2xs text-charcoal-400">+{item.colour.length - 4}</span>
+            <span className="text-2xs text-text-muted">+{item.colour.length - 4}</span>
           )}
         </div>
       </div>
@@ -109,18 +143,12 @@ function PlaceholderImage({
 }) {
   return (
     <div
-      className="w-full h-full flex flex-col items-center justify-center gap-3"
+      className="w-full h-full flex items-center justify-center"
       style={{ backgroundColor: bgHex }}
     >
-      <span className="text-5xl select-none">{CATEGORY_EMOJI[item.category]}</span>
-      <span
-        className={clsx(
-          'text-2xs font-medium uppercase tracking-widest opacity-50',
-          isLight ? 'text-charcoal-700' : 'text-white'
-        )}
-      >
-        {item.material || CATEGORY_LABEL[item.category]}
-      </span>
+      <div className={isLight ? 'text-text-primary' : 'text-white'}>
+        {CATEGORY_ICON[item.category]}
+      </div>
     </div>
   )
 }

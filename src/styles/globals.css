@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Licensed display font, used only for the "Kloset" wordmark. */
+@font-face {
+  font-family: 'Bizantheum';
+  src: url('/fonts/Bizantheum.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -13,33 +22,45 @@
     scroll-behavior: smooth;
   }
 
+  /* Kept on body only (the real scroll container) rather than on inner page
+     wrappers or on both html+body — overflow-x on a nested div implicitly
+     forces overflow-y:auto on it too, which breaks position:sticky for
+     descendants like the cinematic hero; setting it on both html AND body
+     creates two independent scroll containers, which breaks it just the same. */
   body {
-    @apply bg-cream-50 text-charcoal-900 font-sans;
+    @apply bg-warm-cream text-text-primary font-sans;
+    overflow-x: hidden;
     font-feature-settings: 'cv11', 'ss01';
   }
 
   *,
   *::before,
   *::after {
-    @apply border-cream-200;
+    /* 'dark-purple' is a light cream now, not a dark tone — border-dark-purple/10
+       would be an invisible near-white hairline on a near-white page, so the
+       universal default border needs a genuinely dark tint instead. */
+    @apply border-text-primary/10;
   }
 
   ::selection {
-    @apply bg-gold-light text-charcoal-900;
+    background-color: #355E3B;
+    color: #FFFDD0;
   }
 
   /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
+    height: 5px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-cream-100;
+    background: #FCFAF4;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-cream-300 rounded-full;
+    background: #4A7856;
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-stone-muted;
+    background: #355E3B;
   }
 }
 
@@ -48,7 +69,6 @@
     text-wrap: balance;
   }
 
-  /* Staggered animation helper */
   .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
   .animate-stagger > *:nth-child(2) { animation-delay: 80ms; }
   .animate-stagger > *:nth-child(3) { animation-delay: 160ms; }

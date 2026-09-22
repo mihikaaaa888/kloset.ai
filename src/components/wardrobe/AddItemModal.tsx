@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, ImagePlus, X, ChevronRight, SkipForward } from 'lucide-react'
+import { Upload, ImagePlus, X, ChevronRight, SkipForward, Sparkles, Link, Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -14,17 +14,29 @@ import {
   validateImageFile,
   compressImage,
 } from '@/lib/imageStorage'
+import { analyzeImage, analyzeImageFromUrl } from '@/lib/analyzeImage'
+import type { ClothingAnalysis } from '@/lib/analyzeImage'
 import type { ClothingItem, ClothingCategory, Pattern, Season, Occasion } from '@/types'
+
+// ─── Analysis helpers ─────────────────────────────────────────────────────────
+
+const VALID_COLOURS = new Set(COLOUR_PALETTE.map((c) => c.name))
+const VALID_CATEGORIES = new Set(['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'accessories'])
+const VALID_PATTERNS = new Set(['solid', 'striped', 'checked', 'floral', 'abstract', 'animal-print', 'geometric', 'other'])
+const VALID_SEASONS = new Set(['spring', 'summer', 'autumn', 'winter', 'all-season'])
+const VALID_OCCASIONS = new Set(['work', 'casual', 'formal', 'date-night', 'weekend', 'travel', 'gym', 'special-event'])
+const FIT_MAP: Record<string, string> = { slim: 'Slim', regular: 'Regular', relaxed: 'Relaxed', oversized: 'Oversized', fitted: 'Fitted' }
+const FORMALITY_MAP: Record<string, string> = { casual: 'Casual', 'smart casual': 'Smart Casual', business: 'Business', formal: 'Formal', 'black tie': 'Black Tie' }
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
-const CATEGORIES: { value: ClothingCategory; label: string; emoji: string }[] = [
-  { value: 'tops', label: 'Tops', emoji: '👕' },
-  { value: 'bottoms', label: 'Bottoms', emoji: '👖' },
-  { value: 'dresses', label: 'Dresses', emoji: '👗' },
-  { value: 'outerwear', label: 'Outerwear', emoji: '🧥' },
-  { value: 'shoes', label: 'Shoes', emoji: '👟' },
-  { value: 'accessories', label: 'Accessories', emoji: '💍' },
+const CATEGORIES: { value: ClothingCategory; label: string }[] = [
+  { value: 'tops', label: 'Tops' },
+  { value: 'bottoms', label: 'Bottoms' },
+  { value: 'dresses', label: 'Dresses' },
+  { value: 'outerwear', label: 'Outerwear' },
+  { value: 'shoes', label: 'Shoes' },
+  { value: 'accessories', label: 'Accessories' },
 ]
 
 const SUBCATEGORIES: Partial<Record<ClothingCategory, string[]>> = {
@@ -51,12 +63,12 @@ const PATTERNS: { value: Pattern; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-const SEASONS: { value: Season; label: string; emoji: string }[] = [
-  { value: 'spring', label: 'Spring', emoji: '🌸' },
-  { value: 'summer', label: 'Summer', emoji: '☀️' },
-  { value: 'autumn', label: 'Autumn', emoji: '🍂' },
-  { value: 'winter', label: 'Winter', emoji: '❄️' },
-  { value: 'all-season', label: 'All Season', emoji: '✦' },
+const SEASONS: { value: Season; label: string }[] = [
+  { value: 'spring', label: 'Spring' },
+  { value: 'summer', label: 'Summer' },
+  { value: 'autumn', label: 'Autumn' },
+  { value: 'winter', label: 'Winter' },
+  { value: 'all-season', label: 'All Season' },
 ]
 
 const OCCASIONS: { value: Occasion; label: string }[] = [
@@ -126,6 +138,7 @@ function itemToDraft(item: ClothingItem): ItemDraft {
 interface QueuedImage {
   imageId: string
   previewUrl: string
+  blob: Blob
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -154,6 +167,16 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
   const [imageError, setImageError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
+  // AI analysis state
+  const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const [aiApplied, setAiApplied] = useState(false)
+
+  // Photo tab state
+  const [photoTab, setPhotoTab] = useState<'upload' | 'url' | 'browse'>('upload')
+  const [urlInput, setUrlInput] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
+  const [urlLoading, setUrlLoading] = useState(false)
+
   // Multi-upload batch (new items only)
   const [uploadBatch, setUploadBatch] = useState<QueuedImage[]>([])
   const [batchIdx, setBatchIdx] = useState(0)
@@ -174,8 +197,14 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
     setBatchIdx(0)
     setActiveImageId(editItem?.imageId ?? null)
     setLegacyImageUrl(editItem?.imageUrl ?? null)
-    // Show base64 image immediately; IndexedDB images loaded below
     setPreviewUrl(editItem?.imageUrl ?? null)
+    setAiAnalyzing(false)
+    setAiApplied(false)
+    setPhotoTab('upload')
+    setUrlInput('')
+    setUrlError(null)
+    setUrlLoading(false)
+
     pendingMap.current = new Map()
     priorImageId.current = null
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -219,7 +248,7 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
         const blob = await compressImage(file)
         const imageId = await saveImage(blob)
         const url = URL.createObjectURL(blob)
-        processed.push({ imageId, previewUrl: url })
+        processed.push({ imageId, previewUrl: url, blob })
         pendingMap.current.set(imageId, url)
       }
 
@@ -251,13 +280,98 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
       if (errs.length > 0) {
         setImageError(`${errs.length} file(s) skipped — unsupported format or too large.`)
       }
+
+      // Trigger AI analysis on the first image (only for new items, not edits)
+      if (!editItem) {
+        runAiAnalysis(first.blob)
+      }
     } catch (e) {
       setImageError(e instanceof Error ? e.message : 'Failed to process image.')
     } finally {
       setImageProcessing(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }, [activeImageId, editItem?.imageId])
+  }, [activeImageId, editItem?.imageId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── AI analysis ──────────────────────────────────────────────────────────────
+  const applyAnalysis = useCallback((analysis: ClothingAnalysis) => {
+    setDraft((prev) => {
+      const next = { ...prev }
+
+      // Only fill the name if the user hasn't already typed one — everything
+      // else is safe to overwrite since analysis runs immediately on upload,
+      // before there's normally anything to type over.
+      if (analysis.name && !prev.name.trim()) next.name = analysis.name
+
+      if (analysis.category && VALID_CATEGORIES.has(analysis.category)) {
+        next.category = analysis.category as ClothingCategory
+        next.subcategory = ''
+      }
+      if (analysis.subcategory) next.subcategory = analysis.subcategory
+
+      const colours = [analysis.primaryColor, ...(analysis.secondaryColors ?? [])]
+        .filter((c): c is string => !!c && VALID_COLOURS.has(c))
+        .slice(0, 4)
+      if (colours.length > 0) next.colour = colours
+
+      if (analysis.material) next.material = analysis.material
+
+      if (analysis.pattern && VALID_PATTERNS.has(analysis.pattern)) {
+        next.pattern = analysis.pattern as Pattern
+      }
+
+      const fit = analysis.fit ? FIT_MAP[analysis.fit.toLowerCase()] : undefined
+      if (fit) next.fit = fit
+
+      const formality = analysis.formality
+        ? FORMALITY_MAP[analysis.formality.toLowerCase()]
+        : undefined
+      if (formality) next.formality = formality
+
+      const seasons = (analysis.seasons ?? []).filter((s) => VALID_SEASONS.has(s)) as Season[]
+      if (seasons.length > 0) next.seasons = seasons
+
+      const occasions = (analysis.occasions ?? []).filter((o) => VALID_OCCASIONS.has(o)) as Occasion[]
+      if (occasions.length > 0) next.occasions = occasions
+
+      return next
+    })
+  }, [])
+
+  const runAiAnalysis = useCallback(async (blob: Blob) => {
+    setAiAnalyzing(true)
+    setAiApplied(false)
+    try {
+      const analysis = await analyzeImage(blob)
+      if (analysis) {
+        applyAnalysis(analysis)
+        setAiApplied(true)
+      }
+    } catch {
+      // silent — user fills manually
+    } finally {
+      setAiAnalyzing(false)
+    }
+  }, [applyAnalysis])
+
+  // Same auto-detect, for images picked via URL or Pexels browse — those
+  // never had a local Blob to hand to runAiAnalysis, so the server fetches
+  // the URL itself (see analyzeImageFromUrl).
+  const runAiAnalysisFromUrl = useCallback(async (url: string) => {
+    setAiAnalyzing(true)
+    setAiApplied(false)
+    try {
+      const analysis = await analyzeImageFromUrl(url)
+      if (analysis) {
+        applyAnalysis(analysis)
+        setAiApplied(true)
+      }
+    } catch {
+      // silent — user fills manually
+    } finally {
+      setAiAnalyzing(false)
+    }
+  }, [applyAnalysis])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -281,6 +395,33 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
     setLegacyImageUrl(null)
     setPreviewUrl(null)
   }
+
+  // ── Load image from URL ──────────────────────────────────────────────────────
+  const handleUrlSubmit = useCallback(() => {
+    const url = urlInput.trim()
+    if (!url) return
+    try { new URL(url) } catch {
+      setUrlError('Please enter a valid URL.')
+      return
+    }
+    setUrlError(null)
+    setUrlLoading(true)
+    const img = new Image()
+    // No crossOrigin here — we only need to display the image, not read pixels.
+    // Setting crossOrigin would block most fashion/retail sites that don't send CORS headers.
+    img.onload = () => {
+      setUrlLoading(false)
+      setPreviewUrl(url)
+      setLegacyImageUrl(url)
+      setActiveImageId(null)
+      if (!editItem) runAiAnalysisFromUrl(url)
+    }
+    img.onerror = () => {
+      setUrlLoading(false)
+      setUrlError("Couldn't load that image. Make sure the URL points directly to an image file (right-click a photo → Copy image address).")
+    }
+    img.src = url
+  }, [urlInput, editItem, runAiAnalysisFromUrl])
 
   // ── Cleanup on close ─────────────────────────────────────────────────────────
   const handleClose = useCallback(() => {
@@ -351,7 +492,7 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
     const imageFields: Pick<ClothingItem, 'imageId' | 'imageUrl' | 'imageSource'> = activeImageId
       ? { imageId: activeImageId, imageUrl: null, imageSource: 'local' }
       : legacyImageUrl
-      ? { imageId: undefined, imageUrl: legacyImageUrl, imageSource: 'local' }
+      ? { imageId: undefined, imageUrl: legacyImageUrl, imageSource: legacyImageUrl.startsWith('http') ? 'remote' : 'local' }
       : { imageId: undefined, imageUrl: null, imageSource: 'none' }
 
     const item: ClothingItem = {
@@ -391,6 +532,8 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
       setDraft(blankDraft())
       setErrors({})
       setImageError(null)
+      setAiApplied(false)
+      runAiAnalysis(next.blob)
     } else {
       handleClose()
     }
@@ -415,6 +558,8 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
       setDraft(blankDraft())
       setErrors({})
       setImageError(null)
+      setAiApplied(false)
+      runAiAnalysis(next.blob)
     } else {
       handleClose()
     }
@@ -429,6 +574,26 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
 
   const displayUrl = previewUrl
 
+  const actionFooter = (
+    <div className="flex gap-3">
+      <Button variant="ghost" onClick={handleClose} fullWidth>
+        Cancel
+      </Button>
+      <Button onClick={handleSave} fullWidth className="gap-1.5">
+        {isInBatch ? (
+          <>
+            Add to Kloset
+            <ChevronRight size={14} />
+          </>
+        ) : editItem ? (
+          'Save Changes'
+        ) : (
+          'Add to Kloset'
+        )}
+      </Button>
+    </div>
+  )
+
   return (
     <Modal
       open={open}
@@ -441,25 +606,26 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
           : 'Add to My Kloset'
       }
       variant="sheet"
+      footer={actionFooter}
     >
-      <div className="px-6 py-4 pb-8 space-y-7">
+      <div className="px-6 py-4 pb-10 space-y-7">
 
         {/* ── Batch progress bar ── */}
         {isInBatch && (
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-charcoal-400">{batchLabel}</span>
+              <span className="text-xs text-text-muted">{batchLabel}</span>
               <button
                 onClick={handleSkip}
-                className="flex items-center gap-1 text-xs text-charcoal-400 hover:text-charcoal-700 transition-colors"
+                className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors"
               >
                 <SkipForward size={12} />
                 Skip this photo
               </button>
             </div>
-            <div className="h-1 rounded-full bg-cream-200 overflow-hidden">
+            <div className="h-1 rounded-full bg-text-primary/10 overflow-hidden">
               <div
-                className="h-full bg-charcoal-900 rounded-full transition-all duration-300"
+                className="h-full bg-dark-purple rounded-full transition-all duration-300"
                 style={{ width: `${((batchIdx + 1) / uploadBatch.length) * 100}%` }}
               />
             </div>
@@ -468,7 +634,35 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
 
         {/* ── Image Upload ── */}
         <div>
-          <SectionLabel>Photo</SectionLabel>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-text-primary">Photo</p>
+            {!displayUrl && (
+              <div className="flex rounded-xl overflow-hidden border border-text-primary/15 text-xs font-medium">
+                {(
+                  [
+                    { key: 'upload', icon: <Upload size={11} />, label: 'Upload' },
+                    { key: 'browse', icon: <Search size={11} />, label: 'Browse' },
+                    { key: 'url',    icon: <Link size={11} />,   label: 'URL' },
+                  ] as const
+                ).map(({ key, icon, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => { setPhotoTab(key); setUrlError(null); setImageError(null) }}
+                    className={clsx(
+                      'flex items-center gap-1.5 px-3 py-1.5 transition-colors',
+                      photoTab === key
+                        ? 'bg-dark-purple text-butter-yellow'
+                        : 'bg-white text-text-muted hover:text-text-primary'
+                    )}
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {imageError && (
             <p className="text-xs text-amber-600 mb-2 bg-amber-50 px-3 py-2 rounded-xl">
@@ -477,15 +671,26 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
           )}
 
           {displayUrl ? (
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
+            <div className={`relative rounded-2xl overflow-hidden aspect-[4/3] ${isInBatch ? 'max-h-[25vh]' : 'max-h-[40vh]'}`}>
               <img
                 src={displayUrl}
                 alt="Item preview"
                 className="w-full h-full object-cover"
               />
+
+              {/* AI analysing overlay */}
+              {aiAnalyzing && (
+                <div className="absolute inset-0 bg-text-primary/30 backdrop-blur-sm flex items-center justify-center">
+                  <div className="bg-white/95 rounded-2xl px-4 py-3 flex items-center gap-2.5 shadow-soft">
+                    <div className="w-4 h-4 rounded-full border-2 border-butter-yellow/20 border-t-butter-yellow animate-spin" />
+                    <span className="text-xs font-medium text-text-primary">Analysing…</span>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleRemoveImage}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-charcoal-900/70 flex items-center justify-center text-white hover:bg-charcoal-900 transition-colors"
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-text-primary/70 flex items-center justify-center text-white hover:bg-text-primary transition-colors"
                 aria-label="Remove image"
               >
                 <X size={14} />
@@ -493,12 +698,51 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
               {!isInBatch && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm text-charcoal-700 text-xs font-medium hover:bg-white transition-colors"
+                  className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm text-text-primary text-xs font-medium hover:bg-white transition-colors"
                 >
                   <Upload size={11} />
                   Replace
                 </button>
               )}
+            </div>
+          ) : photoTab === 'browse' ? (
+            <ImageSearchBrowser
+              defaultQuery={[draft.subcategory, draft.category, 'clothing'].filter(Boolean).join(' ')}
+              onSelect={(url) => {
+                setPreviewUrl(url)
+                setLegacyImageUrl(url)
+                setActiveImageId(null)
+                if (!editItem) runAiAnalysisFromUrl(url)
+              }}
+            />
+          ) : photoTab === 'url' ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={urlInput}
+                  onChange={(e) => { setUrlInput(e.target.value); setUrlError(null) }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                  placeholder="Paste an image URL from the web…"
+                  className="flex-1 px-4 py-3 rounded-xl border border-text-primary/20 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-primary/50 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={handleUrlSubmit}
+                  disabled={urlLoading || !urlInput.trim()}
+                  className="px-4 py-3 rounded-xl bg-dark-purple text-butter-yellow text-sm font-medium hover:bg-deep-purple transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {urlLoading ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-butter-yellow/40 border-t-butter-yellow animate-spin" />
+                  ) : 'Load'}
+                </button>
+              </div>
+              {urlError && (
+                <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">{urlError}</p>
+              )}
+              <p className="text-xs text-text-muted">
+                Paste a direct image link — right-click any clothing photo online and choose "Copy image address".
+              </p>
             </div>
           ) : (
             <div
@@ -510,32 +754,50 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
                 'rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 transition-all duration-200',
                 imageProcessing ? 'cursor-wait opacity-60' : 'cursor-pointer',
                 dragOver
-                  ? 'border-charcoal-900 bg-cream-100'
-                  : 'border-cream-300 hover:border-charcoal-400 hover:bg-cream-50'
+                  ? 'border-dark-purple bg-text-primary/5'
+                  : 'border-text-primary/20 hover:border-text-primary/40 hover:bg-text-primary/3'
               )}
             >
               {imageProcessing ? (
                 <>
-                  <div className="w-8 h-8 rounded-full border-2 border-charcoal-400 border-t-transparent animate-spin" />
-                  <p className="text-sm text-charcoal-400">Processing…</p>
+                  <div className="w-8 h-8 rounded-full border-2 border-text-primary/40 border-t-dark-purple animate-spin" />
+                  <p className="text-sm text-text-muted">Processing…</p>
                 </>
               ) : (
                 <>
-                  <div className="w-12 h-12 rounded-2xl bg-cream-200 flex items-center justify-center text-charcoal-500">
+                  <div className="w-12 h-12 rounded-2xl bg-text-primary/8 flex items-center justify-center text-text-primary/50">
                     <ImagePlus size={22} />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-medium text-charcoal-700">Upload a photo</p>
-                    <p className="text-xs text-charcoal-400 mt-0.5">
+                    <p className="text-sm font-medium text-text-primary">Upload a photo</p>
+                    <p className="text-xs text-text-muted mt-0.5">
                       Tap to browse or drag & drop
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-charcoal-400">
+                  <div className="flex items-center gap-2 text-xs text-text-muted">
                     <Upload size={12} />
                     <span>JPG, PNG, WEBP · max 15 MB</span>
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* AI auto-fill banner */}
+          {aiApplied && (
+            <div className="mt-3 flex items-start gap-2.5 px-3 py-2.5 rounded-2xl bg-text-primary/8 border border-text-primary/15">
+              <Sparkles size={13} className="text-butter-yellow mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-butter-yellow">Auto-filled from your photo</p>
+                <p className="text-2xs text-text-muted mt-0.5">Review and adjust any fields before saving.</p>
+              </div>
+              <button
+                onClick={() => setAiApplied(false)}
+                className="text-text-muted hover:text-text-primary transition-colors flex-shrink-0 mt-0.5"
+                aria-label="Dismiss"
+              >
+                <X size={12} />
+              </button>
             </div>
           )}
 
@@ -573,13 +835,12 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
                   update('subcategory', '') // reset subcategory when category changes
                 }}
                 className={clsx(
-                  'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium border transition-all duration-200',
+                  'flex items-center px-4 py-2.5 rounded-full text-sm font-medium border transition-all duration-200',
                   draft.category === cat.value
-                    ? 'bg-charcoal-900 text-cream-50 border-charcoal-900'
-                    : 'bg-white text-charcoal-700 border-cream-200 hover:border-charcoal-300'
+                    ? 'bg-dark-purple text-butter-yellow border-dark-purple'
+                    : 'bg-white text-text-primary border-text-primary/15 hover:border-text-primary/40'
                 )}
               >
-                <span>{cat.emoji}</span>
                 {cat.label}
               </button>
             ))}
@@ -689,7 +950,6 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
               <SelectChip
                 key={s.value}
                 label={s.label}
-                emoji={s.emoji}
                 selected={draft.seasons.includes(s.value)}
                 onClick={() => toggleArray('seasons', s.value)}
               />
@@ -732,24 +992,6 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
           </div>
         </div>
 
-        {/* ── Actions ── */}
-        <div className="flex gap-3 pt-2">
-          <Button variant="ghost" onClick={handleClose} fullWidth>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} fullWidth className="gap-1.5">
-            {isInBatch ? (
-              <>
-                Add to Kloset
-                <ChevronRight size={14} />
-              </>
-            ) : editItem ? (
-              'Save Changes'
-            ) : (
-              'Add to Kloset'
-            )}
-          </Button>
-        </div>
 
       </div>
     </Modal>
@@ -758,8 +1000,178 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
 
 function SectionLabel({ children, error }: { children: React.ReactNode; error?: string }) {
   return (
-    <p className={clsx('text-sm font-medium mb-3', error ? 'text-red-500' : 'text-charcoal-700')}>
+    <p className={clsx('text-sm font-medium mb-3', error ? 'text-red-500' : 'text-text-primary')}>
       {children}
     </p>
+  )
+}
+
+// ─── Image Search Browser ──────────────────────────────────────────────────────
+
+interface PexelsPhoto {
+  id: number
+  url: string
+  thumbUrl: string
+  alt: string
+  photographer: string
+}
+
+function ImageSearchBrowser({
+  defaultQuery,
+  onSelect,
+}: {
+  defaultQuery: string
+  onSelect: (url: string) => void
+}) {
+  const [query, setQuery] = useState(defaultQuery || 'clothing fashion')
+  const [photos, setPhotos] = useState<PexelsPhoto[]>([])
+  const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalResults, setTotalResults] = useState(0)
+  const [noKey, setNoKey] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const search = useCallback(async (q: string, p = 1) => {
+    if (!q.trim()) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/search-images?q=${encodeURIComponent(q)}&page=${p}`
+      )
+      const data = await res.json()
+      if (data.noKey) { setNoKey(true); return }
+      setPhotos(data.photos ?? [])
+      setTotalResults(data.totalResults ?? 0)
+      setPage(p)
+    } catch {
+      setError('Could not load images — make sure the API server is running.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Auto-search on mount with the default query
+  useEffect(() => {
+    search(query, 1)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.ceil(totalResults / 18)
+
+  if (noKey) {
+    return (
+      <div className="rounded-2xl border border-text-primary/15 bg-text-primary/3 p-5 text-center space-y-2">
+        <p className="text-sm font-medium text-text-primary">Image search not set up</p>
+        <p className="text-xs text-text-muted leading-relaxed">
+          Add a free Pexels API key to <span className="font-mono bg-text-primary/8 px-1 rounded">PEXELS_API_KEY</span> in your <span className="font-mono bg-text-primary/8 px-1 rounded">.env</span> file, then restart the server.
+        </p>
+        <a
+          href="https://www.pexels.com/api/"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block text-xs text-butter-yellow underline underline-offset-2 mt-1"
+        >
+          Get a free key at pexels.com/api →
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Search bar */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') search(query, 1) }}
+            placeholder="e.g. black blazer, white sneakers…"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-text-primary/20 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-primary/50 bg-white"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => search(query, 1)}
+          disabled={loading}
+          className="px-4 py-2.5 rounded-xl bg-dark-purple text-butter-yellow text-sm font-medium hover:bg-deep-purple transition-colors disabled:opacity-40"
+        >
+          {loading ? (
+            <div className="w-4 h-4 rounded-full border-2 border-butter-yellow/40 border-t-butter-yellow animate-spin" />
+          ) : 'Search'}
+        </button>
+      </div>
+
+      {/* Results grid */}
+      {error ? (
+        <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">{error}</p>
+      ) : loading ? (
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="aspect-[3/4] rounded-xl bg-text-primary/8 animate-pulse" />
+          ))}
+        </div>
+      ) : photos.length === 0 ? (
+        <p className="text-sm text-text-muted text-center py-6">No results for "{query}" — try different words.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {photos.map((photo) => (
+            <button
+              key={photo.id}
+              type="button"
+              onClick={() => onSelect(photo.url)}
+              className="relative aspect-[3/4] rounded-xl overflow-hidden hover:scale-[0.97] hover:shadow-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow"
+              title={photo.alt}
+            >
+              <img
+                src={photo.thumbUrl}
+                alt={photo.alt}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && !loading && (
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            onClick={() => search(query, page - 1)}
+            disabled={page <= 1}
+            className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+          >
+            <ChevronLeft size={13} />
+            Prev
+          </button>
+          <span className="text-xs text-text-muted">
+            {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => search(query, page + 1)}
+            disabled={page >= totalPages}
+            className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+          >
+            Next
+            <ChevronRightIcon size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Pexels attribution */}
+      {photos.length > 0 && (
+        <p className="text-2xs text-text-muted text-center">
+          Photos provided by{' '}
+          <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+            Pexels
+          </a>
+        </p>
+      )}
+    </div>
   )
 }

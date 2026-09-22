@@ -4,6 +4,30 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ── Palette (Phase C rebrand) ─────────────────────────────────────
+        // 'dark-purple'/'deep-purple' now hold a light cream (previously a
+        // dark purple — token names kept so every existing class still
+        // applies, but they're a light base color now, not a dark one) and
+        // 'butter-yellow'/'soft-butter' hold a dark forest green (previously
+        // a light butter yellow). Any spot that paired the old dark-purple
+        // with white text, or used dark-purple as standalone foreground
+        // text, needed a manual follow-up fix — see git history for that pass.
+        'dark-purple': '#FFFDD0',
+        'deep-purple': '#F5F0B8',
+        'butter-yellow': '#355E3B',
+        'soft-butter': '#4A7856',
+        'warm-cream': '#FCFAF4',
+        'text-primary': '#241B29',
+        'text-muted': '#766C78',
+        purple: {
+          950: '#2B173F',
+          900: '#3A2154',
+          800: '#4D2D6B',
+          700: '#613A84',
+          400: '#A47BC0',
+          300: '#C4A8D8',
+        },
+        // ── Legacy palette (kept for existing components during migration) ─
         cream: {
           50: '#FAFAF8',
           100: '#F5F4F0',
@@ -30,9 +54,12 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Montserrat', 'system-ui', 'sans-serif'],
         serif: ['"Playfair Display"', 'Georgia', 'serif'],
         display: ['"Playfair Display"', 'Georgia', 'serif'],
+        // Just for the "Kloset" wordmark — a licensed display font, not used
+        // for any other UI text.
+        brand: ['Bizantheum', '"Playfair Display"', 'serif'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

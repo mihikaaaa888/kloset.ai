@@ -45,18 +45,8 @@ export function OnboardingLayout({
           )}
 
           <div className="flex items-center gap-1.5">
-            {/* Logo */}
-            <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="8" fill="#111110" />
-              <path
-                d="M8 10h12M8 14h8M8 18h10"
-                stroke="#FAFAF8"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
             <span className="font-serif text-base text-charcoal-900">
-              Kloset<span className="text-gold">.</span>ai
+              <span className="font-brand font-bold">Kloset</span><span className="text-gold">.</span>ai
             </span>
           </div>
 

@@ -1,26 +1,80 @@
 import type { StylePreference, Occasion } from '@/types'
 export { COLOUR_PALETTE } from '@/lib/colourUtils'
 
-export const styleOptions: { value: StylePreference; label: string; emoji: string; description: string }[] = [
-  { value: 'classic', label: 'Classic', emoji: '🎩', description: 'Timeless, tailored, polished' },
-  { value: 'minimalist', label: 'Minimalist', emoji: '◻️', description: 'Clean lines, neutral palette' },
-  { value: 'business', label: 'Business', emoji: '💼', description: 'Professional, sharp, confident' },
-  { value: 'streetwear', label: 'Streetwear', emoji: '🧢', description: 'Urban, casual, expressive' },
-  { value: 'bohemian', label: 'Bohemian', emoji: '🌿', description: 'Free-spirited, layered, earthy' },
-  { value: 'athleisure', label: 'Athleisure', emoji: '🏃', description: 'Active, comfortable, functional' },
-  { value: 'romantic', label: 'Romantic', emoji: '🌸', description: 'Feminine, soft, elegant' },
-  { value: 'eclectic', label: 'Eclectic', emoji: '🎨', description: 'Bold, mixed, creative' },
+export const styleOptions: {
+  value: StylePreference
+  label: string
+  description: string
+  imageUrl: string
+  accent: string
+}[] = [
+  {
+    value: 'minimalist',
+    label: 'Minimal',
+    description: 'Clean lines, neutral palette',
+    imageUrl: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&q=80&auto=format&fit=crop',
+    accent: '#E8E4DE',
+  },
+  {
+    value: 'classic',
+    label: 'Classic',
+    description: 'Timeless, tailored, polished',
+    imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=80&auto=format&fit=crop',
+    accent: '#D4C9BE',
+  },
+  {
+    value: 'romantic',
+    label: 'Feminine',
+    description: 'Soft, delicate, elegant',
+    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80&auto=format&fit=crop',
+    accent: '#F2D0D0',
+  },
+  {
+    value: 'streetwear',
+    label: 'Streetwear',
+    description: 'Urban, casual, expressive',
+    imageUrl: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=400&q=80&auto=format&fit=crop',
+    accent: '#C8C8C8',
+  },
+  {
+    value: 'business',
+    label: 'Old Money',
+    description: 'Quiet luxury, understated',
+    imageUrl: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=400&q=80&auto=format&fit=crop',
+    accent: '#D4C49A',
+  },
+  {
+    value: 'bohemian',
+    label: 'Bohemian',
+    description: 'Free-spirited, earthy, layered',
+    imageUrl: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&q=80&auto=format&fit=crop',
+    accent: '#C9B89A',
+  },
+  {
+    value: 'athleisure',
+    label: 'Sporty',
+    description: 'Active, comfortable, functional',
+    imageUrl: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80&auto=format&fit=crop',
+    accent: '#B8D4C8',
+  },
+  {
+    value: 'eclectic',
+    label: 'Experimental',
+    description: 'Bold, mixed, creative',
+    imageUrl: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=400&q=80&auto=format&fit=crop',
+    accent: '#C8B4D4',
+  },
 ]
 
-export const occasionOptions: { value: Occasion; label: string; emoji: string }[] = [
-  { value: 'work', label: 'Work / Office', emoji: '🏢' },
-  { value: 'casual', label: 'Everyday Casual', emoji: '☕' },
-  { value: 'formal', label: 'Formal Events', emoji: '🥂' },
-  { value: 'date-night', label: 'Date Night', emoji: '✨' },
-  { value: 'weekend', label: 'Weekend Outings', emoji: '🌿' },
-  { value: 'travel', label: 'Travel', emoji: '✈️' },
-  { value: 'gym', label: 'Gym / Active', emoji: '💪' },
-  { value: 'special-event', label: 'Special Events', emoji: '🎉' },
+export const occasionOptions: { value: Occasion; label: string }[] = [
+  { value: 'work', label: 'Work / Office' },
+  { value: 'casual', label: 'Everyday Casual' },
+  { value: 'formal', label: 'Formal Events' },
+  { value: 'date-night', label: 'Date Night' },
+  { value: 'weekend', label: 'Weekend Outings' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'gym', label: 'Gym / Active' },
+  { value: 'special-event', label: 'Special Events' },
 ]
 
 
@@ -40,8 +94,8 @@ export const frequencyOptions = [
 ] as const
 
 export const genderStyleOptions = [
-  { value: 'feminine', label: 'Feminine', emoji: '🌸' },
-  { value: 'masculine', label: 'Masculine', emoji: '🧔' },
-  { value: 'androgynous', label: 'Androgynous', emoji: '✦' },
-  { value: 'no-preference', label: 'No preference', emoji: '✌️' },
+  { value: 'feminine', label: 'Feminine' },
+  { value: 'masculine', label: 'Masculine' },
+  { value: 'androgynous', label: 'Androgynous' },
+  { value: 'no-preference', label: 'No preference' },
 ] as const

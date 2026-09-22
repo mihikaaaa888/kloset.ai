@@ -42,18 +42,18 @@ export function SavedOutfitsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-50 pt-16 lg:pt-20 pb-28 md:pb-12">
+    <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ── Header ── */}
         <div className="py-8 lg:py-10">
-          <p className="text-gold text-xs font-medium uppercase tracking-ultra-wide mb-1">
+          <p className="text-butter-yellow text-xs font-medium uppercase tracking-ultra-wide mb-1">
             Your collection
           </p>
-          <h1 className="font-display text-3xl lg:text-4xl font-medium text-charcoal-900">
+          <h1 className="font-display text-3xl lg:text-4xl font-medium text-text-primary">
             Saved Outfits
           </h1>
-          <p className="text-charcoal-400 text-sm mt-1">
+          <p className="text-text-muted text-sm mt-1">
             {savedOutfits.length} {savedOutfits.length === 1 ? 'outfit' : 'outfits'} saved
           </p>
         </div>
@@ -95,13 +95,13 @@ export function SavedOutfitsPage() {
 function EmptyState({ onGoToStylist }: { onGoToStylist: () => void }) {
   return (
     <div className="py-20 flex flex-col items-center text-center px-4">
-      <div className="w-20 h-20 rounded-3xl bg-charcoal-900 flex items-center justify-center mb-6">
-        <Sparkles size={32} className="text-gold" />
+      <div className="w-20 h-20 rounded-3xl bg-dark-purple flex items-center justify-center mb-6">
+        <Sparkles size={32} className="text-butter-yellow" />
       </div>
-      <h2 className="font-display text-2xl font-medium text-charcoal-900 mb-2">
+      <h2 className="font-display text-2xl font-medium text-text-primary mb-2">
         No saved outfits yet
       </h2>
-      <p className="text-charcoal-400 text-base max-w-sm leading-relaxed mb-8">
+      <p className="text-text-muted text-base max-w-sm leading-relaxed mb-8">
         Generate an outfit with your AI stylist and save the ones you love to find them here.
       </p>
       <Button size="lg" onClick={onGoToStylist} className="gap-2">

@@ -1,4 +1,4 @@
-import { RefreshCw, BookMarked, Check, Sparkles, ChevronRight } from 'lucide-react'
+import { RefreshCw, BookMarked, Check, Sparkles, ChevronRight, Shirt } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -13,15 +13,11 @@ const OCCASION_LABELS: Record<string, string> = {
   weekend: 'Weekend', travel: 'Travel', 'special-event': 'Special Event', gym: 'Gym',
 }
 const WEATHER_LABELS: Record<string, string> = {
-  hot: '☀️ Hot', warm: '🌤 Warm', cool: '🍂 Cool', cold: '❄️ Cold', rainy: '🌧 Rainy',
+  hot: 'Hot', warm: 'Warm', cool: 'Cool', cold: 'Cold', rainy: 'Rainy',
 }
 const MOOD_LABELS: Record<string, string> = {
-  confident: '🔥 Confident', polished: '💎 Polished', relaxed: '🌊 Relaxed',
-  creative: '🎨 Creative', playful: '🌈 Playful', understated: '🤍 Understated', romantic: '🌸 Romantic',
-}
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  tops: '👕', bottoms: '👖', dresses: '👗', outerwear: '🧥', shoes: '👟', accessories: '💍',
+  confident: 'Confident', polished: 'Polished', relaxed: 'Relaxed',
+  creative: 'Creative', playful: 'Playful', understated: 'Understated', romantic: 'Romantic',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -226,22 +222,13 @@ function OutfitItemTile({
           />
         ) : (
           <div
-            className="w-full h-full flex flex-col items-center justify-center gap-2"
+            className="w-full h-full flex items-center justify-center"
             style={{ backgroundColor: bgHex }}
           >
-            <span className={clsx('select-none', featured ? 'text-5xl' : 'text-3xl')}>
-              {CATEGORY_EMOJI[item.category]}
-            </span>
-            {item.material && (
-              <span
-                className={clsx(
-                  'text-2xs font-medium uppercase tracking-widest opacity-50',
-                  isLight ? 'text-charcoal-700' : 'text-white'
-                )}
-              >
-                {item.material}
-              </span>
-            )}
+            <Shirt
+              size={featured ? 40 : 28}
+              className={clsx('select-none', isLight ? 'text-text-primary opacity-30' : 'text-white opacity-40')}
+            />
           </div>
         )}
 

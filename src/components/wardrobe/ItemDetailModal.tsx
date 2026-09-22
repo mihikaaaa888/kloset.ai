@@ -1,4 +1,4 @@
-import { Heart, Pencil, Trash2, Plus } from 'lucide-react'
+import { Heart, Pencil, Trash2, Plus, Shirt } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -6,15 +6,6 @@ import { Badge } from '@/components/ui/Badge'
 import { colourNameToHex } from '@/lib/colourUtils'
 import { useItemImage } from '@/hooks/useItemImage'
 import type { ClothingItem } from '@/types'
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  tops: '👕',
-  bottoms: '👖',
-  dresses: '👗',
-  outerwear: '🧥',
-  shoes: '👟',
-  accessories: '💍',
-}
 
 interface ItemDetailModalProps {
   item: ClothingItem | null
@@ -56,7 +47,7 @@ export function ItemDetailModal({
               className="w-full h-full flex items-center justify-center"
               style={bgStyle}
             >
-              <span className="text-7xl">{CATEGORY_EMOJI[item.category]}</span>
+              <Shirt size={48} className="opacity-30 text-text-primary" />
             </div>
           )}
         </div>
@@ -89,7 +80,7 @@ export function ItemDetailModal({
           {/* Badges */}
           <div className="flex flex-wrap gap-2 mb-6">
             <Badge variant="dark">
-              {CATEGORY_EMOJI[item.category]} {item.category}
+              {item.category}
             </Badge>
             {item.pattern !== 'solid' && (
               <Badge variant="neutral">{item.pattern}</Badge>
