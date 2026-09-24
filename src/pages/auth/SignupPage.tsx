@@ -30,7 +30,7 @@ export function SignupPage() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -39,11 +39,28 @@ export function SignupPage() {
     })
 
     if (error) {
+      console.error('[signup] failed', error.message)
       setError(error.message)
       setLoading(false)
       return
     }
 
+    // Supabase hides whether an email is taken: it "succeeds" with no identities and sends nothing.
+    if (data.user && data.user.identities?.length === 0) {
+      console.log('[signup] email already registered, no email sent')
+      setError('An account with this email already exists. Sign in instead, or reset your password.')
+      setLoading(false)
+      return
+    }
+
+    // Email confirmation turned off in Supabase: the user is signed in straight away.
+    if (data.session) {
+      console.log('[signup] signed in without confirmation')
+      navigate('/onboarding', { replace: true })
+      return
+    }
+
+    console.log('[signup] confirmation email requested', { redirectTo: `${window.location.origin}/wardrobe` })
     setSuccess(true)
     setLoading(false)
   }
