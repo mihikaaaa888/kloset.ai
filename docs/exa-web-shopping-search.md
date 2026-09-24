@@ -29,7 +29,7 @@ User types "pink top"
 
 This follows the existing pattern in the codebase: `GROQ_API_KEY` and
 `PEXELS_API_KEY` are read server-side only in `server/index.mjs` (and mirrored
-in `api/*.js` for Vercel), never exposed to the browser. `EXA_API_KEY` does
+in `server/app.mjs`, served on Netlify via `netlify/functions/api.mjs`), never exposed to the browser. `EXA_API_KEY` does
 the same.
 
 ## API contract
@@ -111,9 +111,9 @@ Both items originally deferred here have since shipped:
 
 - **Retailers**: `RETAILER_DOMAINS`/`RETAILER_NAMES` now also include COS,
   Uniqlo, Mango, & Other Stories, and Everlane (`server/index.mjs`,
-  `api/web-shop-search.js`). The Discover search's retailer chips and
+  `server/app.mjs`). The Discover search's retailer chips and
   `Retailer` type (`src/lib/webShopService.ts`) were extended to match.
-- **Chat integration**: Kaia's system prompt (`server/index.mjs`, `/api/chat`)
+- **Chat integration**: Kaia's system prompt (`server/app.mjs`, `/api/chat`)
   now permits recommending a real external brand piece when it genuinely
   complements a wardrobe gap, and is instructed to end that recommendation
   with a `[[SHOP: <query>]]` tag. `StylistChat.tsx` strips that tag from the

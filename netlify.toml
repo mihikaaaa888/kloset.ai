@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  node_bundler = "esbuild"
+
+# All API calls go to the single Express-backed function.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback so refreshing /wardrobe, /chat, etc. serves the app, not a 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
