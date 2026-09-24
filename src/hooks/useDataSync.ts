@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { fetchProfile, upsertProfile } from '@/lib/profileService'
-import { fetchWardrobe } from '@/lib/wardrobeService'
+import { fetchWardrobe, backfillPhotos } from '@/lib/wardrobeService'
 
 // Loads the authenticated user's profile and wardrobe from Supabase into local stores.
 // Runs once per login. Clears local stores on logout.
@@ -53,6 +53,7 @@ export function useDataSync() {
 
       setItems(items)
       markLoaded(userId)
+      backfillPhotos(userId, items).catch((e) => console.error('[sync] photo backfill failed', e))
       console.log('[sync] profile ready', {
         onboardingComplete: !!useUserStore.getState().profile?.onboardingComplete,
       })

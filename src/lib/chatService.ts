@@ -139,22 +139,41 @@ export async function sendChatMessage(
     : ''
   const shopSummary = buildShopSummary()
 
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      wardrobeSummary,
-      wardrobeGapsSummary,
-      profileSummary,
-      stylePreferencesSummary,
-      shopSummary,
-      // Lets the server check each outfit line against the real category.
-      wardrobeItems: wardrobe.map((i) => ({ name: i.name, category: i.category })),
-    }),
+  const body = JSON.stringify({
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    wardrobeSummary,
+    wardrobeGapsSummary,
+    profileSummary,
+    stylePreferencesSummary,
+    shopSummary,
+    // Lets the server check each outfit line against the real category.
+    wardrobeItems: wardrobe.map((i) => ({ name: i.name, category: i.category })),
   })
 
-  if (!response.ok) throw new Error('Chat request failed')
-  const data = await response.json()
-  return data.reply ?? "I'm not sure what to say — try asking again."
+  // Phones drop requests when switching networks or waking up; one quiet retry covers most of it.
+  let response: Response
+  try {
+    response = await postChat(body)
+  } catch (e) {
+    console.warn('[chat] network error, retrying once', e)
+    response = await postChat(body)
+  }
+
+  // The server sends an in-character `reply` even with its errors, so show that when there is one.
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    console.error('[chat] request failed', response.status, data)
+    if (data?.reply) return data.reply
+    throw new Error(`Chat request failed (${response.status})`)
+  }
+  console.log('[chat] reply received', { source: data?.source })
+  return data?.reply ?? "I'm not sure what to say — try asking again."
+}
+
+function postChat(body: string): Promise<Response> {
+  return fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  })
 }

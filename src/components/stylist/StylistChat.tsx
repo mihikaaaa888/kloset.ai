@@ -87,10 +87,13 @@ export function StylistChat({ initialPrompt }: { initialPrompt?: string }) {
     try {
       const reply = await sendChatMessage(next, items, profile)
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
-    } catch {
+    } catch (e) {
+      console.error('[chat] send failed', e)
       setMessages((prev) => [...prev, {
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Make sure the API server is running (`npm run server`) and try again.",
+        content: navigator.onLine
+          ? "I couldn't reach the styling service just now — please try again in a moment."
+          : "You seem to be offline. Check your connection and try again.",
       }])
     } finally {
       setLoading(false)

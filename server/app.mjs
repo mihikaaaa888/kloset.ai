@@ -391,6 +391,8 @@ async function callGroq(apiKey, systemPrompt, recentMessages) {
       'Content-Type': 'application/json',
     },
     body: requestBody,
+    // Netlify kills the function at 10s; give up early enough for the Claude fallback to answer.
+    signal: AbortSignal.timeout(6000),
   })
 
   if (!response.ok) {
@@ -423,7 +425,7 @@ async function callClaude(apiKey, systemPrompt, recentMessages) {
     max_tokens: 600,
     system: systemPrompt,
     messages: claudeMessages,
-  })
+  }, { timeout: 7000, maxRetries: 0 })
 
   return response.content?.find((b) => b.type === 'text')?.text ?? null
 }
@@ -528,6 +530,7 @@ CRITICAL RULES:
     return { reply: null, source: null, lastError }
   }
 
+  const started = Date.now()
   let { reply, source, lastError } = await generate(recentMessages)
 
   // One rewrite at most — bounds latency, and a second draft almost always
@@ -535,7 +538,11 @@ CRITICAL RULES:
   // rather than an error.
   if (reply) {
     const problems = findOutfitProblems(reply, wardrobeItems)
-    if (problems.length) {
+    // A rewrite is a second model call; skip it when the first one was slow, or the
+    // whole request overruns Netlify's 10s function limit and the phone gets nothing.
+    if (problems.length && Date.now() - started > 3500) {
+      console.warn(`[chat] outfit rules broken but first draft took ${Date.now() - started}ms, skipping rewrite`)
+    } else if (problems.length) {
       console.warn(`[chat] outfit rules broken, asking for a rewrite:\n  - ${problems.join('\n  - ')}`)
       const retry = await generate([
         ...recentMessages,

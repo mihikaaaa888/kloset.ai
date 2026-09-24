@@ -26,7 +26,36 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-export async function analyzeImage(blob: Blob): Promise<ClothingAnalysis | null> {
+const MAX_ANALYSIS_EDGE = 1280
+
+// Phone camera photos run 3–6 MB, and base64 adds a third on top — past Netlify's 6 MB
+// request limit. The model doesn't need more than ~1280px to read a garment, so re-encode
+// as a JPEG that size. Also turns formats the model rejects (HEIC) into JPEG.
+async function shrinkForAnalysis(blob: Blob): Promise<Blob> {
+  const url = URL.createObjectURL(blob)
+  try {
+    const img = new Image()
+    img.src = url
+    await img.decode()
+    const scale = Math.min(1, MAX_ANALYSIS_EDGE / Math.max(img.naturalWidth, img.naturalHeight))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(img.naturalWidth * scale)
+    canvas.height = Math.round(img.naturalHeight * scale)
+    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+    const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    if (!out) throw new Error('canvas.toBlob returned null')
+    console.log('[analyzeImage] resized', { from: blob.size, to: out.size, width: canvas.width, height: canvas.height })
+    return out
+  } catch (e) {
+    console.warn('[analyzeImage] resize failed, sending original', e)
+    return blob
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+export async function analyzeImage(original: Blob): Promise<ClothingAnalysis | null> {
+  const blob = await shrinkForAnalysis(original)
   const supportedTypes = ['image/jpeg', 'image/png', 'image/webp']
   const mediaType = supportedTypes.includes(blob.type) ? blob.type : 'image/jpeg'
 
@@ -38,7 +67,10 @@ export async function analyzeImage(blob: Blob): Promise<ClothingAnalysis | null>
     body: JSON.stringify({ imageData, mediaType }),
   })
 
-  if (!res.ok) return null
+  if (!res.ok) {
+    console.error('[analyzeImage] request failed', res.status)
+    return null
+  }
 
   const data = await res.json()
   return (data.analysis as ClothingAnalysis) ?? null

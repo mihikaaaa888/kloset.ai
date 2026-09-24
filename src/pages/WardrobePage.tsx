@@ -64,8 +64,10 @@ export function WardrobePage() {
   }, [items, activeCategory, searchQuery])
 
   const handleAddSamples = () => {
-    for (const item of SAMPLE_WARDROBE_ITEMS) {
-      addItem({ ...item, id: crypto.randomUUID() })
+    for (const sample of SAMPLE_WARDROBE_ITEMS) {
+      const item = { ...sample, id: crypto.randomUUID() }
+      addItem(item)
+      if (user) insertItem(user.id, item).catch(() => {})
     }
   }
 
@@ -101,6 +103,12 @@ export function WardrobePage() {
     updateItem(item.id, { timesWorn: updated.timesWorn })
     if (user) dbUpdateItem(user.id, updated).catch(() => {})
     setDetailItem((prev) => prev ? { ...prev, timesWorn: updated.timesWorn } : null)
+  }
+
+  // Saved to Supabase too, or the heart is lost on every other device.
+  const handleToggleFavourite = (item: ClothingItem) => {
+    toggleFavourite(item.id)
+    if (user) dbUpdateItem(user.id, { ...item, isFavourite: !item.isFavourite }).catch(() => {})
   }
 
   const openAdd = () => {
@@ -244,7 +252,7 @@ export function WardrobePage() {
                   key={item.id}
                   item={item}
                   onClick={() => setDetailItem(item)}
-                  onToggleFavourite={(e) => { e.stopPropagation(); toggleFavourite(item.id) }}
+                  onToggleFavourite={(e) => { e.stopPropagation(); handleToggleFavourite(item) }}
                   onStyleThis={(e) => { e.stopPropagation(); navigate('/stylist', { state: { mode: 'item', itemId: item.id } }) }}
                 />
               ))}
@@ -270,7 +278,7 @@ export function WardrobePage() {
         onDelete={() => detailItem && handleDelete(detailItem.id)}
         onToggleFavourite={() => {
           if (!detailItem) return
-          toggleFavourite(detailItem.id)
+          handleToggleFavourite(detailItem)
           setDetailItem((prev) => prev ? { ...prev, isFavourite: !prev.isFavourite } : null)
         }}
         onIncrementWorn={() => detailItem && handleIncrementWorn(detailItem)}

@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import type { ClothingItem } from '@/types'
+import { getImage } from './imageStorage'
+import { useWardrobeStore } from '@/store/wardrobeStore'
 
 type DbItem = {
   id: string
@@ -34,6 +36,7 @@ function toItem(row: DbItem): ClothingItem {
     category: row.category as ClothingItem['category'],
     subcategory: row.subcategory ?? undefined,
     imageId: row.image_id ?? undefined,
+    imageStoragePath: row.image_storage_path ?? undefined,
     imageUrl: row.image_url,
     imageSource: row.image_source as ClothingItem['imageSource'],
     colour: row.colour,
@@ -62,7 +65,7 @@ function toRow(userId: string, item: ClothingItem): Omit<DbItem, 'user_id'> & { 
     subcategory: item.subcategory ?? null,
     image_id: item.imageId ?? null,
     image_url: item.imageUrl,
-    image_storage_path: null,
+    image_storage_path: item.imageStoragePath ?? null,
     image_source: item.imageSource,
     colour: item.colour,
     material: item.material ?? null,
@@ -88,27 +91,121 @@ export async function fetchWardrobe(userId: string): Promise<ClothingItem[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
-  if (error || !data) return []
+  if (error || !data) {
+    console.error('[wardrobe] fetch failed', error?.message)
+    return []
+  }
+  console.log('[wardrobe] fetched', data.length, 'items')
   return (data as DbItem[]).map(toItem)
 }
 
+// ─── Photos ─────────────────────────────────────────────────────────────────
+// Photos are captured into this browser's IndexedDB. A copy goes to the private
+// wardrobe-images bucket (supabase/wardrobe_photos.sql) so the phone can show
+// pieces added on the laptop and vice versa.
+
+const PHOTO_BUCKET = 'wardrobe-images'
+
+function photoPath(userId: string, item: ClothingItem): string | null {
+  return item.imageId ? `${userId}/${item.imageId}.jpg` : null
+}
+
+/** Uploads the item's local photo if storage doesn't have this version yet. Returns the item to save. */
+async function withUploadedPhoto(userId: string, item: ClothingItem): Promise<ClothingItem> {
+  const path = photoPath(userId, item)
+  if (!path || item.imageStoragePath === path) return item
+
+  const blob = await getImage(item.imageId!).catch(() => null)
+  if (!blob) return item // Photo lives on another device; nothing to upload from here.
+
+  const { error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
+  if (error) {
+    console.error('[wardrobe] photo upload failed — run supabase/wardrobe_photos.sql if the bucket is missing', error.message)
+    return item
+  }
+  console.log('[wardrobe] photo uploaded', { itemId: item.id })
+  useWardrobeStore.getState().updateItem(item.id, { imageStoragePath: path })
+  return { ...item, imageStoragePath: path }
+}
+
+const signedUrlCache = new Map<string, Promise<string | null>>()
+
+/** Signed URL for a stored photo, cached for the session (valid a day). */
+export function getPhotoUrl(path: string): Promise<string | null> {
+  let cached = signedUrlCache.get(path)
+  if (!cached) {
+    cached = supabase.storage
+      .from(PHOTO_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[wardrobe] photo url failed', path, error.message)
+          signedUrlCache.delete(path)
+          return null
+        }
+        return data.signedUrl
+      })
+    signedUrlCache.set(path, cached)
+  }
+  return cached
+}
+
+/** Uploads photos this device has that storage doesn't — heals items added before photo sync existed. */
+export async function backfillPhotos(userId: string, items: ClothingItem[]): Promise<void> {
+  const pending = items.filter((i) => i.imageId && i.imageStoragePath !== photoPath(userId, i))
+  if (pending.length === 0) return
+  console.log('[wardrobe] checking', pending.length, 'photos for upload')
+  for (const item of pending) {
+    const saved = await withUploadedPhoto(userId, item)
+    if (saved.imageStoragePath !== item.imageStoragePath) {
+      const { error } = await supabase
+        .from('wardrobe_items')
+        .update({ image_storage_path: saved.imageStoragePath })
+        .eq('id', item.id)
+        .eq('user_id', userId)
+      if (error) console.error('[wardrobe] saving photo path failed', item.id, error.message)
+    }
+  }
+}
+
+// ─── Writes ─────────────────────────────────────────────────────────────────
+
 export async function insertItem(userId: string, item: ClothingItem): Promise<void> {
-  await supabase.from('wardrobe_items').insert(toRow(userId, item))
+  const saved = await withUploadedPhoto(userId, item)
+  const { error } = await supabase.from('wardrobe_items').insert(toRow(userId, saved))
+  if (error) {
+    console.error('[wardrobe] insert failed', item.id, error.message)
+    throw new Error(error.message)
+  }
+  console.log('[wardrobe] item saved', item.id)
 }
 
 export async function updateItem(userId: string, item: ClothingItem): Promise<void> {
-  const { id, user_id: _uid, created_at: _ca, ...updates } = toRow(userId, item)
-  await supabase
+  const saved = await withUploadedPhoto(userId, item)
+  const { id, user_id: _uid, created_at: _ca, ...updates } = toRow(userId, saved)
+  const { error } = await supabase
     .from('wardrobe_items')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', userId)
+  if (error) {
+    console.error('[wardrobe] update failed', item.id, error.message)
+    throw new Error(error.message)
+  }
+  console.log('[wardrobe] item updated', item.id)
 }
 
 export async function deleteItem(userId: string, itemId: string): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from('wardrobe_items')
     .delete()
     .eq('id', itemId)
     .eq('user_id', userId)
+  if (error) {
+    console.error('[wardrobe] delete failed', itemId, error.message)
+    throw new Error(error.message)
+  }
+  console.log('[wardrobe] item deleted', itemId)
 }

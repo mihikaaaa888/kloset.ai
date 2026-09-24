@@ -71,6 +71,8 @@ export interface ClothingItem {
   subcategory?: string
   // imageId: IndexedDB key for the stored Blob (new path, survives refresh)
   imageId?: string
+  // imageStoragePath: copy of the imageId photo in Supabase Storage, so other devices can show it
+  imageStoragePath?: string
   // imageUrl: legacy base64 data URL or remote URL; kept for backwards compatibility
   imageUrl: string | null
   imageSource: 'local' | 'remote' | 'none'
