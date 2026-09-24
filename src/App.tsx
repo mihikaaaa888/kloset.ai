@@ -14,6 +14,7 @@ import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -65,6 +66,8 @@ function AppRoutes() {
         <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
         <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
         <Route path="/forgot-password" element={<RedirectIfAuth><ForgotPasswordPage /></RedirectIfAuth>} />
+        {/* Not wrapped in RedirectIfAuth: the reset link signs the user in before they pick a password. */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected */}
         <Route path="/home" element={<RequireAuth><HomePage /></RequireAuth>} />
