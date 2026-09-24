@@ -44,7 +44,7 @@ export function LookCard({ look, isInWardrobe, onAddLook }: LookCardProps) {
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => console.log('[shop] open look piece', { look: look.id, piece: p.id })}
-                  className="flex items-center gap-0.5 text-2xs uppercase tracking-widest font-semibold text-butter-yellow hover:underline underline-offset-4"
+                  className="flex items-center gap-0.5 -my-2 py-3 pl-2 text-2xs uppercase tracking-widest font-semibold text-butter-yellow hover:underline underline-offset-4"
                 >
                   Buy <ArrowUpRight size={11} />
                 </a>
@@ -62,7 +62,7 @@ export function LookCard({ look, isInWardrobe, onAddLook }: LookCardProps) {
             type="button"
             onClick={onAddLook}
             disabled={allAdded}
-            className="flex items-center gap-1.5 text-2xs uppercase tracking-widest font-semibold text-text-primary hover:text-butter-yellow disabled:text-text-muted/60 disabled:cursor-default transition-colors"
+            className="flex items-center gap-1.5 -my-3 py-3 text-2xs uppercase tracking-widest font-semibold text-text-primary hover:text-butter-yellow disabled:text-text-muted/60 disabled:cursor-default transition-colors"
           >
             {allAdded ? <Check size={12} /> : <Plus size={12} />}
             {allAdded ? 'Look in your Kloset' : 'Add look to Kloset'}

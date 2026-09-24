@@ -106,7 +106,7 @@ export function FriendsPage() {
               aria-selected={tab === value}
               onClick={() => setTab(value)}
               className={clsx(
-                'relative -mb-px pb-3 text-xs uppercase tracking-widest transition-colors flex items-center gap-2',
+                'relative -mb-px pt-3 pb-3 text-xs uppercase tracking-widest transition-colors flex items-center gap-2',
                 tab === value
                   ? 'text-text-primary font-semibold after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-text-primary'
                   : 'text-text-muted hover:text-text-primary'

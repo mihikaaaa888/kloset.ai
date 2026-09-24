@@ -163,7 +163,8 @@ export function StylistChat({ initialPrompt }: { initialPrompt?: string }) {
       </div>
 
       {/* ── Input ── */}
-      <div className="pt-4 border-t border-text-primary/8">
+      {/* Pinned above the phone tab bar (56px + home-indicator inset) so the message box is always in reach. */}
+      <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] md:bottom-0 z-10 -mx-4 px-4 pt-4 pb-3 md:pb-0 bg-warm-cream border-t border-text-primary/8">
         {hasAddedFromChat && (
           <button
             onClick={() => navigate('/wardrobe')}
@@ -188,7 +189,7 @@ export function StylistChat({ initialPrompt }: { initialPrompt?: string }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Kaia anything about your style…"
+            placeholder="Ask Kaia anything…"
             rows={1}
             maxLength={4000}
             className="flex-1 resize-none px-4 py-3 rounded-2xl border border-text-primary/15 bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-primary/40 transition-colors leading-relaxed"
@@ -197,6 +198,7 @@ export function StylistChat({ initialPrompt }: { initialPrompt?: string }) {
           <button
             onClick={() => send()}
             disabled={!input.trim() || loading}
+            aria-label="Send message"
             className={clsx(
               'w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 flex-shrink-0',
               input.trim() && !loading

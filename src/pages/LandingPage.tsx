@@ -70,13 +70,27 @@ export function LandingPage() {
         onDoorOpenChange={setDoorOpen}
       />
 
+      {/* ── Mobile top bar — no scroll-driven door on phones, so the logo and menu are there from the start ── */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-40 h-16 px-4 flex items-center justify-between bg-[#FBF5EC]/95 backdrop-blur-md border-b border-text-primary/10">
+        <span className="font-brand text-xl text-butter-yellow">Kloset<span className="text-butter-yellow/50">.</span>ai</span>
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-expanded={menuOpen}
+          aria-controls="landing-sidebar"
+          aria-label="Open menu"
+          className="w-11 h-11 -mr-1.5 flex items-center justify-center rounded-full text-text-primary active:bg-text-primary/5"
+        >
+          <Menu size={22} />
+        </button>
+      </header>
+
       {/* ── Menu button — pinned top-left, fades in once the closet door has opened ── */}
       <button
         onClick={() => setMenuOpen(true)}
         aria-expanded={menuOpen}
         aria-controls="landing-sidebar"
         className={clsx(
-          'fixed top-6 left-6 z-40 flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-butter-yellow text-dark-purple ring-1 ring-dark-purple/30 shadow-lifted hover:bg-soft-butter transition-[opacity,visibility,background-color] duration-500',
+          'hidden md:flex fixed top-6 left-6 z-40 items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-butter-yellow text-dark-purple ring-1 ring-dark-purple/30 shadow-lifted hover:bg-soft-butter transition-[opacity,visibility,background-color] duration-500',
           showMenuButton ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
         )}
       >
@@ -85,7 +99,7 @@ export function LandingPage() {
       </button>
 
       {/* ── Page 2: headline + CTA (moved here from the hero, which is video-only once the door opens) ── */}
-      <section className="py-28 lg:py-40 bg-butter-yellow">
+      <section className="py-16 md:py-28 lg:py-40 bg-butter-yellow">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <HeroCopy onCTA={handleCTA} animate={false} align="center" tone="green" />
         </div>
@@ -123,7 +137,7 @@ export function LandingPage() {
             <span className="font-brand text-xl text-butter-yellow">Kloset.ai</span>
             <button
               onClick={() => setMenuOpen(false)}
-              className="p-2 rounded-full text-butter-yellow/70 hover:text-butter-yellow hover:bg-butter-yellow/10 transition-colors"
+              className="w-11 h-11 -mr-2 flex items-center justify-center rounded-full text-butter-yellow/70 hover:text-butter-yellow hover:bg-butter-yellow/10 transition-colors"
               aria-label="Close menu"
             >
               <X size={20} />
@@ -137,7 +151,7 @@ export function LandingPage() {
                 end
                 onClick={() => setMenuOpen(false)}
                 className={({ isActive }) => clsx(
-                  'block py-2 text-base uppercase tracking-wider transition-colors',
+                  'block py-3 text-base uppercase tracking-wider transition-colors',
                   isActive ? 'text-butter-yellow font-semibold' : 'text-butter-yellow/70 hover:text-butter-yellow'
                 )}
               >
@@ -149,7 +163,7 @@ export function LandingPage() {
             {user ? (
               <button
                 onClick={handleSignOut}
-                className="block py-2 text-sm uppercase tracking-wider text-butter-yellow/70 hover:text-butter-yellow transition-colors"
+                className="block py-3 text-sm uppercase tracking-wider text-butter-yellow/70 hover:text-butter-yellow transition-colors"
               >
                 Sign out
               </button>

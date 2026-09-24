@@ -577,10 +577,10 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
 
   const actionFooter = (
     <div className="flex gap-3">
-      <Button variant="ghost" onClick={handleClose} fullWidth>
+      <Button variant="ghost" onClick={handleClose} className="flex-none">
         Cancel
       </Button>
-      <Button onClick={handleSave} fullWidth className="gap-1.5">
+      <Button onClick={handleSave} className="flex-1 gap-1.5 whitespace-nowrap">
         {isInBatch ? (
           <>
             Add to Kloset

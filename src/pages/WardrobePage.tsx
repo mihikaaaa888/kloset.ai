@@ -162,7 +162,7 @@ export function WardrobePage() {
               aria-selected={view === value}
               onClick={() => setView(value)}
               className={clsx(
-                'relative -mb-px pb-3 text-xs uppercase tracking-widest transition-colors',
+                'relative -mb-px pt-3 pb-3 text-xs uppercase tracking-widest transition-colors',
                 view === value
                   ? 'text-text-primary font-semibold after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-text-primary'
                   : 'text-text-muted hover:text-text-primary'

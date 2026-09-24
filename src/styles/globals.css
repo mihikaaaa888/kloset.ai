@@ -50,6 +50,20 @@
     @apply border-text-primary/10;
   }
 
+  /* iOS zooms the whole page when a field under 16px gets focus — keep
+     every field at 16px on touch screens. */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   ::selection {
     background-color: #355E3B;
     color: #FFFDD0;
@@ -87,6 +101,14 @@
   }
   .text-tab-active::after {
     @apply scale-x-100;
+  }
+
+  /* Touch screens: text tabs are only ~22px tall visually, so stretch the hit
+     area to the 44px minimum. The underline stays pinned to the bottom edge. */
+  @media (pointer: coarse) {
+    .text-tab {
+      min-height: 44px;
+    }
   }
 
   .text-balance {

@@ -127,7 +127,7 @@ export function SignupPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -166,7 +166,7 @@ export function SignupPage() {
 
         <p className="text-center text-sm text-text-muted mt-8">
           Already have an account?{' '}
-          <Link to="/login" className="text-butter-yellow hover:text-soft-butter transition-colors font-medium">
+          <Link to="/login" className="inline-block py-2 text-butter-yellow hover:text-soft-butter transition-colors font-medium">
             Sign in
           </Link>
         </p>

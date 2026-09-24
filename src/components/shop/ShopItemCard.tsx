@@ -54,12 +54,12 @@ export function ShopItemCard({ item, mode, inWardrobe, onAdd }: ShopItemCardProp
           )}
         </p>
 
-        <div className="flex items-center gap-5 pt-1">
+        <div className="flex items-center gap-5">
           <a
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1 text-2xs uppercase tracking-widest text-butter-yellow font-semibold hover:underline underline-offset-4"
+            className="flex items-center gap-1 py-3 text-2xs uppercase tracking-widest text-butter-yellow font-semibold hover:underline underline-offset-4"
           >
             {mode === 'rent' ? 'Rent' : 'Buy'}
             <ArrowUpRight size={12} />
@@ -68,7 +68,7 @@ export function ShopItemCard({ item, mode, inWardrobe, onAdd }: ShopItemCardProp
             type="button"
             onClick={() => !inWardrobe && onAdd()}
             disabled={inWardrobe}
-            className="flex items-center gap-1 text-2xs uppercase tracking-widest text-text-muted hover:text-text-primary disabled:text-text-muted/50 disabled:cursor-default transition-colors"
+            className="flex items-center gap-1 py-3 text-2xs uppercase tracking-widest text-text-muted hover:text-text-primary disabled:text-text-muted/50 disabled:cursor-default transition-colors"
           >
             {inWardrobe ? <Check size={12} /> : <Plus size={12} />}
             {inWardrobe ? 'Added' : 'Add to Kloset'}

@@ -66,6 +66,9 @@ export function Navigation() {
   // The landing page has no top nav — its links live in the footer instead.
   if (isOnboarding || isAuthPage || isLanding) return null
 
+  // On phones, signed-in users get the bottom tab bar, so the hamburger would just repeat it.
+  const hasTabBar = !!user && !!profile?.onboardingComplete
+
   return (
     <>
       <header
@@ -115,7 +118,10 @@ export function Navigation() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="md:hidden p-2 rounded-full transition-colors text-text-primary hover:bg-text-primary/5"
+              className={clsx(
+                'md:hidden w-11 h-11 -mr-2.5 flex items-center justify-center rounded-full transition-colors text-text-primary hover:bg-text-primary/5',
+                hasTabBar && 'hidden'
+              )}
               aria-label="Toggle menu"
             >
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
@@ -125,7 +131,7 @@ export function Navigation() {
       </header>
 
       {/* Mobile menu overlay */}
-      {mobileOpen && (
+      {mobileOpen && !hasTabBar && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute top-16 left-0 right-0 bg-warm-cream border-b border-text-primary/10 shadow-lifted animate-fade-up">
@@ -139,7 +145,7 @@ export function Navigation() {
                     to={item.to}
                     end={item.to === '/' || item.to === '/home'}
                     className={({ isActive }) => clsx(
-                      'flex items-center gap-2 py-2.5 text-base uppercase tracking-wider transition-colors',
+                      'flex items-center gap-2 py-3 text-base uppercase tracking-wider transition-colors',
                       isActive ? 'text-butter-yellow font-semibold' : 'text-text-primary hover:text-butter-yellow'
                     )}
                   >
@@ -163,17 +169,21 @@ export function Navigation() {
       )}
 
       {/* Bottom mobile nav */}
-      {user && profile?.onboardingComplete && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-warm-cream/95 backdrop-blur-md border-t border-text-primary/10">
-          <div className="flex items-center justify-around px-2 py-2">
+      {hasTabBar && (
+        <nav
+          aria-label="Main"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-warm-cream/95 backdrop-blur-md border-t border-text-primary/10"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex items-stretch px-1">
             {authNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === '/home'}
                 className={({ isActive }) => clsx(
-                  'flex flex-col items-center gap-1 px-1 py-2 text-2xs uppercase tracking-wider transition-colors duration-150',
-                  isActive ? 'text-butter-yellow font-semibold' : 'text-text-muted hover:text-text-primary'
+                  'flex-1 min-w-0 min-h-[56px] flex flex-col items-center justify-center gap-1 px-0.5 text-[11px] leading-none whitespace-nowrap transition-colors duration-150',
+                  isActive ? 'text-butter-yellow font-semibold' : 'text-text-muted active:text-text-primary'
                 )}
               >
                 <span className="relative">

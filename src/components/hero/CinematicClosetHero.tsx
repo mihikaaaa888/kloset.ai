@@ -96,15 +96,22 @@ function StaticHero({ onDoorOpenChange }: CinematicClosetHeroProps) {
   )
 }
 
-/** Lightweight mobile hero — just the looping background video, no chroma key / scroll scrub. */
+/**
+ * Lightweight mobile hero — the looping background video at its own 16:9
+ * shape, no chroma key / scroll scrub. Cropping it to fill a tall phone
+ * screen cut the board down to one garment, so instead it's scaled up just
+ * enough to trim the video's own cream margin and the board fills the width.
+ * The top padding clears the fixed logo/menu bar.
+ */
 function MobileVideoHero({ onDoorOpenChange }: CinematicClosetHeroProps) {
   // No door animation here, so the page counts as 'opened' straight away.
   useEffect(() => { onDoorOpenChange?.(true) }, [onDoorOpenChange])
 
   return (
-    <section className="relative min-h-screen overflow-hidden">
-      <HeroBackdrop />
-      <BackgroundVideo visible />
+    <section className="relative overflow-hidden bg-[#FBF5EC] pt-16">
+      <div className="relative w-[136%] -ml-[18%] aspect-video">
+        <BackgroundVideo visible />
+      </div>
     </section>
   )
 }
