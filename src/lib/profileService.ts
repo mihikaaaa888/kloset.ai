@@ -44,14 +44,24 @@ export async function fetchProfile(userId: string): Promise<UserProfile | null> 
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
 
-  if (error || !data) return null
-  return toProfile(data as DbProfile)
+  if (error) {
+    console.error('[profile] fetch failed', error.message)
+    return null
+  }
+  if (!data) {
+    console.log('[profile] no profile row yet', { userId })
+    return null
+  }
+  const profile = toProfile(data as DbProfile)
+  console.log('[profile] fetched', { onboardingComplete: profile.onboardingComplete, hasName: !!profile.name })
+  return profile
 }
 
-export async function upsertProfile(userId: string, profile: UserProfile): Promise<void> {
-  await supabase.from('profiles').upsert({
+// Returns true when the profile reached Supabase. Other devices only see what gets saved here.
+export async function upsertProfile(userId: string, profile: UserProfile): Promise<boolean> {
+  const row: Record<string, unknown> = {
     id: userId,
     name: profile.name,
     age_range: profile.ageRange || null,
@@ -66,5 +76,21 @@ export async function upsertProfile(userId: string, profile: UserProfile): Promi
     onboarding_complete: profile.onboardingComplete,
     style_item_selections: profile.styleItemSelections ?? [],
     updated_at: new Date().toISOString(),
-  })
+  }
+
+  let { error } = await supabase.from('profiles').upsert(row)
+
+  // Databases created before style_item_selections existed reject the whole row; save everything else.
+  if (error?.code === '42703' || error?.code === 'PGRST204') {
+    console.warn('[profile] style_item_selections column missing, saving without it — run supabase/schema.sql')
+    delete row.style_item_selections
+    ;({ error } = await supabase.from('profiles').upsert(row))
+  }
+
+  if (error) {
+    console.error('[profile] save failed', error.message)
+    return false
+  }
+  console.log('[profile] saved', { onboardingComplete: profile.onboardingComplete })
+  return true
 }

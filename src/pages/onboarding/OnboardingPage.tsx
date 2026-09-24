@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowRight, Check } from 'lucide-react'
 import { HangerIcon } from '@/components/ui/HangerIcon'
@@ -76,17 +76,38 @@ function profileToDraft(profile: UserProfile): OnboardingDraft {
 export function OnboardingPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
+  const profile = useUserStore((s) => s.profile)
+  const loadedForUserId = useUserStore((s) => s.loadedForUserId)
+
+  const isEditMode = new URLSearchParams(location.search).get('edit') === 'true'
+  // Until Supabase answers we can't tell a new user from a returning one on a fresh device.
+  const profileLoaded = !!user && loadedForUserId === user.id
+  const alreadyOnboarded = profileLoaded && !!profile?.onboardingComplete && !isEditMode
+
+  useEffect(() => {
+    if (alreadyOnboarded) {
+      console.log('[onboarding] already complete, skipping to wardrobe')
+      navigate('/wardrobe', { replace: true })
+    }
+  }, [alreadyOnboarded, navigate])
+
+  if (!profileLoaded || alreadyOnboarded) {
+    return (
+      <div className="min-h-screen bg-warm-cream flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-butter-yellow/30 border-t-butter-yellow animate-spin" />
+      </div>
+    )
+  }
+
+  return <OnboardingFlow isEditMode={isEditMode} />
+}
+
+function OnboardingFlow({ isEditMode }: { isEditMode: boolean }) {
+  const navigate = useNavigate()
   const setProfile = useUserStore((s) => s.setProfile)
   const profile = useUserStore((s) => s.profile)
   const { user } = useAuth()
-
-  const isEditMode = new URLSearchParams(location.search).get('edit') === 'true'
-
-  // Already onboarded and not editing — go straight to wardrobe
-  if (profile?.onboardingComplete && !isEditMode) {
-    navigate('/wardrobe', { replace: true })
-    return null
-  }
 
   const [step, setStep] = useState(1)
   const [draft, setDraft] = useState<OnboardingDraft>(
@@ -174,7 +195,9 @@ export function OnboardingPage() {
     }
     setProfile(newProfile)
     if (user) {
-      await upsertProfile(user.id, newProfile)
+      // On failure the local copy stays and useDataSync re-uploads it on the next load.
+      const saved = await upsertProfile(user.id, newProfile)
+      console.log('[onboarding] completed', { savedToServer: saved })
     }
     navigate(isEditMode ? '/profile' : '/wardrobe')
   }

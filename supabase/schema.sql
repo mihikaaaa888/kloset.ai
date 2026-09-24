@@ -25,6 +25,11 @@ create table if not exists public.profiles (
   updated_at                timestamptz not null default now()
 );
 
+-- Added after launch: the catalogue picks from onboarding step 4. Without this column
+-- every profile save fails, so onboarding never syncs to other devices.
+alter table public.profiles
+  add column if not exists style_item_selections text[] not null default '{}';
+
 alter table public.profiles enable row level security;
 
 create policy "Users can read their own profile"
