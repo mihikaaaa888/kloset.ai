@@ -45,8 +45,8 @@ export function OnboardingLayout({
           )}
 
           <div className="flex items-center gap-1.5">
-            <span className="font-serif text-base text-charcoal-900">
-              <span className="font-brand font-bold">Kloset</span><span className="text-gold">.</span>ai
+            <span className="font-brand text-base text-charcoal-900">
+              Kloset<span className="text-gold">.</span>ai
             </span>
           </div>
 

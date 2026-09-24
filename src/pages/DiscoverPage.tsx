@@ -1,14 +1,33 @@
 import { useState, useMemo } from 'react'
 import { clsx } from 'clsx'
-import { Compass } from 'lucide-react'
 
-import { CatalogCard } from '@/components/catalog/CatalogCard'
-import { WebShopSearch } from '@/components/discover/WebShopSearch'
+import { ShopItemCard } from '@/components/shop/ShopItemCard'
+import { LookCard } from '@/components/shop/LookCard'
+import { BudgetDropdown } from '@/components/shop/BudgetDropdown'
+import { CompleteAPiece } from '@/components/shop/CompleteAPiece'
 import { useWardrobeStore } from '@/store/wardrobeStore'
+import { useUserStore } from '@/store/userStore'
 import { useAuth } from '@/contexts/AuthContext'
 import { insertItem } from '@/lib/wardrobeService'
-import { CATALOG_ITEMS, CATALOG_PRICE_LABELS } from '@/lib/catalogData'
-import type { CatalogItem, ClothingCategory, StylePreference, ClothingItem } from '@/types'
+import { CATALOG_ITEMS } from '@/lib/catalogData'
+import {
+  buildShoppingLooks,
+  fitsBuyBudget,
+  fitsRentBudget,
+  isRentable,
+  rankForUser,
+  type BudgetId,
+} from '@/lib/shopping'
+import type { CatalogItem, ClothingCategory, ClothingItem } from '@/types'
+
+type ShopMode = 'outfit' | 'piece' | 'complete' | 'rent'
+
+const MODES: { id: ShopMode; label: string; blurb: string }[] = [
+  { id: 'outfit', label: 'Brand-new outfit', blurb: 'Complete looks, head to toe — built around your style.' },
+  { id: 'piece', label: 'New pieces', blurb: 'Single pieces, starting with the gaps in your Kloset.' },
+  { id: 'complete', label: 'Complete a piece', blurb: 'Pick something you own, or upload a photo — we’ll find what goes with it.' },
+  { id: 'rent', label: 'Rent', blurb: 'Occasion and investment pieces you can rent by the week.' },
+]
 
 const CATEGORY_FILTERS: { value: ClothingCategory | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -20,53 +39,36 @@ const CATEGORY_FILTERS: { value: ClothingCategory | 'all'; label: string }[] = [
   { value: 'accessories', label: 'Accessories' },
 ]
 
-type PriceRange = CatalogItem['priceRange']
-
-const BUDGET_FILTERS: { value: PriceRange | 'all'; label: string }[] = [
-  { value: 'all', label: 'Any budget' },
-  { value: 'budget', label: `${CATALOG_PRICE_LABELS.budget} · under $55` },
-  { value: 'mid', label: `${CATALOG_PRICE_LABELS.mid} · $60–140` },
-  { value: 'premium', label: `${CATALOG_PRICE_LABELS.premium} · $150–380` },
-  { value: 'luxury', label: `${CATALOG_PRICE_LABELS.luxury} · $400+` },
-]
-
-const STYLE_FILTERS: { value: StylePreference | 'all'; label: string }[] = [
-  { value: 'all', label: 'All styles' },
-  { value: 'classic', label: 'Classic' },
-  { value: 'minimalist', label: 'Minimalist' },
-  { value: 'business', label: 'Business' },
-  { value: 'romantic', label: 'Romantic' },
-  { value: 'streetwear', label: 'Streetwear' },
-  { value: 'bohemian', label: 'Bohemian' },
-  { value: 'eclectic', label: 'Eclectic' },
-]
-
+/** Personal shopping — brand-new outfits, single pieces, or rentals, with one budget dropdown. */
 export function DiscoverPage() {
   const { user } = useAuth()
   const { items: wardrobeItems, addItem } = useWardrobeStore()
+  const profile = useUserStore((s) => s.profile)
 
-  const [activeCategory, setActiveCategory] = useState<ClothingCategory | 'all'>('all')
-  const [activeStyle, setActiveStyle] = useState<StylePreference | 'all'>('all')
-  const [activeBudget, setActiveBudget] = useState<PriceRange | 'all'>('all')
-  // Track items added this session for instant UI feedback
+  const [mode, setMode] = useState<ShopMode>('outfit')
+  const [budget, setBudget] = useState<BudgetId>('any')
+  const [category, setCategory] = useState<ClothingCategory | 'all'>('all')
+  // Items added this session, for instant UI feedback before the store syncs.
   const [addedThisSession, setAddedThisSession] = useState<Set<string>>(new Set())
 
   const addedCatalogIds = useMemo(
     () => new Set(wardrobeItems.map((i) => i.catalogId).filter(Boolean) as string[]),
     [wardrobeItems]
   )
+  const isInWardrobe = (id: string) => addedCatalogIds.has(id) || addedThisSession.has(id)
 
-  const filtered = useMemo(() => {
-    return CATALOG_ITEMS.filter((item) => {
-      const catMatch = activeCategory === 'all' || item.category === activeCategory
-      const styleMatch =
-        activeStyle === 'all' || item.styleAesthetics.includes(activeStyle as StylePreference)
-      const budgetMatch = activeBudget === 'all' || item.priceRange === activeBudget
-      return catMatch && styleMatch && budgetMatch
-    })
-  }, [activeCategory, activeStyle, activeBudget])
+  const looks = useMemo(() => buildShoppingLooks(profile, budget), [profile, budget])
+
+  const pieces = useMemo(() => {
+    const pool = CATALOG_ITEMS.filter((item) => {
+      if (mode === 'rent') return isRentable(item) && fitsRentBudget(item, budget)
+      return fitsBuyBudget(item, budget)
+    }).filter((item) => category === 'all' || item.category === category)
+    return rankForUser(pool, profile, wardrobeItems)
+  }, [mode, budget, category, profile, wardrobeItems])
 
   const handleAdd = (catalogItem: CatalogItem) => {
+    if (isInWardrobe(catalogItem.id)) return
     const now = new Date().toISOString()
     const newItem: ClothingItem = {
       id: crypto.randomUUID(),
@@ -89,124 +91,116 @@ export function DiscoverPage() {
       catalogId: catalogItem.id,
     }
 
+    console.log('[shop] add to Kloset', { id: catalogItem.id, mode })
     addItem(newItem)
     setAddedThisSession((prev) => new Set(prev).add(catalogItem.id))
-    if (user) insertItem(user.id, newItem).catch(() => {})
+    if (user) {
+      insertItem(user.id, newItem).catch((err) => console.error('[shop] failed to save item', catalogItem.id, err))
+    }
   }
 
-  const isInWardrobe = (id: string) => addedCatalogIds.has(id) || addedThisSession.has(id)
-
-  const addedCount = addedThisSession.size
+  const activeMode = MODES.find((m) => m.id === mode)!
+  const resultCount = mode === 'outfit' ? looks.length : pieces.length
+  const isEmpty = resultCount === 0
 
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ── Header ── */}
-        <div className="py-8 lg:py-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-2xl bg-dark-purple flex items-center justify-center flex-shrink-0">
-              <Compass size={18} className="text-butter-yellow" />
-            </div>
-            <p className="text-butter-yellow text-xs font-medium uppercase tracking-ultra-wide">
-              Curated essentials
-            </p>
-          </div>
-          <h1 className="font-display text-3xl lg:text-4xl font-medium text-text-primary">
-            Discover
-          </h1>
-          <p className="text-text-muted text-sm mt-1 max-w-md">
-            {filtered.length} essential pieces — add any directly to your Kloset.
-            {addedCount > 0 && (
-              <span className="ml-2 text-butter-yellow font-medium">
-                {addedCount} added this session.
-              </span>
-            )}
+        <header className="pt-10 pb-8 lg:pt-14 text-center">
+          <p className="text-butter-yellow text-xs font-medium uppercase tracking-ultra-wide mb-3">
+            Personal shopping
           </p>
+          <h1 className="font-display text-4xl lg:text-5xl font-medium text-text-primary">
+            Shop for you
+          </h1>
+          <p className="text-text-muted text-sm mt-3">{activeMode.blurb}</p>
+        </header>
+
+        {/* ── Toolbar: mode tabs + budget ── */}
+        <div className="flex flex-col-reverse sm:flex-row sm:items-end justify-between gap-4 border-b border-text-primary/10 pb-3">
+          <nav className="flex gap-6 sm:gap-10 overflow-x-auto no-scrollbar" aria-label="Shopping mode">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  console.log('[shop] mode changed', m.id)
+                  setMode(m.id)
+                  setCategory('all')
+                }}
+                aria-current={mode === m.id ? 'page' : undefined}
+                className={clsx('text-tab sm:text-sm flex-shrink-0', mode === m.id && 'text-tab-active')}
+              >
+                {m.label}
+              </button>
+            ))}
+          </nav>
+          <div className="self-end sm:self-auto">
+            <BudgetDropdown value={budget} onChange={setBudget} mode={mode === 'rent' ? 'rent' : 'buy'} />
+          </div>
         </div>
 
-        <WebShopSearch />
-
-        {/* ── Category filter ── */}
-        <div className="mb-4 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-1 min-w-max">
+        {/* ── Category (single pieces + rentals only) ── */}
+        {(mode === 'piece' || mode === 'rent') && (
+          <div className="flex gap-6 overflow-x-auto no-scrollbar pt-5">
             {CATEGORY_FILTERS.map((f) => (
               <button
                 key={f.value}
-                onClick={() => setActiveCategory(f.value)}
-                className={clsx(
-                  'px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 whitespace-nowrap',
-                  activeCategory === f.value
-                    ? 'bg-dark-purple text-butter-yellow border-dark-purple'
-                    : 'bg-white text-text-muted border-text-primary/15 hover:border-text-primary/40 hover:text-text-primary'
-                )}
+                onClick={() => setCategory(f.value)}
+                className={clsx('text-tab flex-shrink-0 !text-2xs', category === f.value && 'text-tab-active')}
               >
                 {f.label}
               </button>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* ── Style filter ── */}
-        <div className="mb-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-1 min-w-max">
-            {STYLE_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setActiveStyle(f.value)}
-                className={clsx(
-                  'px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 whitespace-nowrap',
-                  activeStyle === f.value
-                    ? 'bg-text-primary/10 text-butter-yellow border-text-primary/30'
-                    : 'bg-transparent text-text-muted border-text-primary/10 hover:border-text-primary/25 hover:text-text-primary'
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+        {mode !== 'complete' && (
+          <p className="text-2xs uppercase tracking-widest text-text-muted pt-5 pb-6">
+            {resultCount} {mode === 'outfit' ? (resultCount === 1 ? 'look' : 'looks') : resultCount === 1 ? 'piece' : 'pieces'}
+          </p>
+        )}
+
+        {/* ── Results ── */}
+        {mode === 'complete' ? (
+          <div className="pt-10">
+            <CompleteAPiece
+              budget={budget}
+              profile={profile}
+              wardrobe={wardrobeItems}
+              isInWardrobe={isInWardrobe}
+              onAdd={handleAdd}
+            />
           </div>
-        </div>
-
-        {/* ── Budget filter ── */}
-        <div className="mb-8 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-1 min-w-max">
-            {BUDGET_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setActiveBudget(f.value)}
-                className={clsx(
-                  'px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 whitespace-nowrap',
-                  activeBudget === f.value
-                    ? 'bg-butter-yellow/10 text-butter-yellow border-butter-yellow/40'
-                    : 'bg-transparent text-text-muted border-text-primary/10 hover:border-text-primary/25 hover:text-text-primary'
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Grid ── */}
-        {filtered.length === 0 ? (
-          <div className="py-20 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-3xl bg-text-primary/8 flex items-center justify-center mb-4">
-              <Compass size={24} className="text-text-primary/40" />
-            </div>
-            <p className="text-text-primary font-medium mb-1">No pieces match these filters</p>
+        ) : isEmpty ? (
+          <div className="py-20 text-center">
+            <p className="font-display text-2xl text-text-primary mb-2">Nothing in this budget yet</p>
             <button
-              onClick={() => { setActiveCategory('all'); setActiveStyle('all'); setActiveBudget('all') }}
-              className="text-sm text-butter-yellow underline underline-offset-4 mt-2"
+              onClick={() => { setBudget('any'); setCategory('all') }}
+              className="text-tab text-tab-active"
             >
-              Clear filters
+              Show everything
             </button>
           </div>
+        ) : mode === 'outfit' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-14">
+            {looks.map((look) => (
+              <LookCard
+                key={look.id}
+                look={look}
+                isInWardrobe={isInWardrobe}
+                onAddLook={() => look.pieces.forEach(handleAdd)}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {filtered.map((item) => (
-              <CatalogCard
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+            {pieces.map((item) => (
+              <ShopItemCard
                 key={item.id}
                 item={item}
+                mode={mode === 'rent' ? 'rent' : 'buy'}
                 inWardrobe={isInWardrobe(item.id)}
                 onAdd={() => handleAdd(item)}
               />

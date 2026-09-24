@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
-import { HeroCopy } from './HeroCopy'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useCinematicChromaHero } from '@/hooks/useCinematicChromaHero'
 
 const VIDEO_SRC = '/videos/closet-hero.mp4'
+const BACKGROUND_VIDEO_SRC = '/videos/kloset-hero-bg.mp4' // full-bleed background the closet door opens onto
 const HERO_SCROLL_VH = 600 // scroll runway for the pinned closet animation — more room to breathe
+// The cabinet's inner opening in closet-hero.mp4 (1920x1080), as
+// [left, top, right, bottom] fractions of the frame — measured from the
+// fully-open frame. The background video shows through this area only.
+const DOORWAY_RECT: [number, number, number, number] = [0.391, 0.153, 0.608, 0.732]
 
 interface CinematicClosetHeroProps {
-  onCTA: () => void
-  showStylistLink?: boolean
-  onStylistClick?: () => void
+  /** Fires true once the closet door has fully opened (immediately, for heroes without a door animation). */
+  onDoorOpenChange?: (open: boolean) => void
 }
 
 function useMediaQuery(query: string): boolean {
@@ -44,65 +47,125 @@ function HeroBackdrop() {
   )
 }
 
-/** Static hero — reduced motion, WebGL unavailable, or video failed to load. */
-function StaticHero({ onCTA, showStylistLink, onStylistClick }: CinematicClosetHeroProps) {
-  return (
-    <section className="relative min-h-screen flex items-center">
-      <HeroBackdrop />
-      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-warm-cream to-transparent" />
-      <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-8 pt-24 pb-32">
-        <HeroCopy onCTA={onCTA} showStylistLink={showStylistLink} onStylistClick={onStylistClick} />
-      </div>
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-text-primary/30">
-        <span className="text-2xs uppercase tracking-widest">Scroll</span>
-        <div className="w-px h-8 bg-gradient-to-b from-text-primary/30 to-transparent" />
-      </div>
-    </section>
-  )
-}
+/**
+ * Full-bleed looping background video (Zara-style), faded in once `visible`.
+ * Playback is separate from visibility: the desktop hero plays it unseen so
+ * it can show through the doorway before it's revealed full-bleed. Restarts
+ * from the first frame each time `playing` turns on.
+ */
+function BackgroundVideo({
+  visible,
+  playing = visible,
+  videoRef,
+}: {
+  visible: boolean
+  playing?: boolean
+  videoRef?: RefObject<HTMLVideoElement>
+}) {
+  const ownRef = useRef<HTMLVideoElement>(null)
+  const ref = videoRef ?? ownRef
 
-/** Lightweight mobile hero — a short, plain looping video, no chroma key / scroll scrub. */
-function MobileVideoHero({ onCTA, showStylistLink, onStylistClick }: CinematicClosetHeroProps) {
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    if (playing) {
+      video.currentTime = 0
+      video.play()
+        .then(() => console.log('[hero-bg-video] playing'))
+        .catch((err) => console.error('[hero-bg-video] play failed', err))
+    } else {
+      video.pause()
+      console.log('[hero-bg-video] paused')
+    }
+  }, [playing, ref])
+
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
-      <HeroBackdrop />
+    <div
+      className={`absolute inset-0 transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      aria-hidden="true"
+    >
       <video
-        className="absolute inset-0 w-full h-full object-cover opacity-30"
-        src={VIDEO_SRC}
-        autoPlay
+        ref={ref}
+        className="absolute inset-0 w-full h-full object-cover"
+        src={BACKGROUND_VIDEO_SRC}
         muted
         loop
         playsInline
         preload="auto"
+        tabIndex={-1}
+        onError={() => console.error('[hero-bg-video] failed to load', BACKGROUND_VIDEO_SRC)}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-dark-purple/60 via-dark-purple/70 to-dark-purple" />
-      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-warm-cream to-transparent" />
-      <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-8 pt-24 pb-32">
-        <HeroCopy onCTA={onCTA} showStylistLink={showStylistLink} onStylistClick={onStylistClick} />
-      </div>
+    </div>
+  )
+}
+
+/** Static hero — reduced motion, WebGL unavailable, or video failed to load. Shows the video's still first frame, no motion. */
+function StaticHero({ onDoorOpenChange }: CinematicClosetHeroProps) {
+  // No door animation here, so the page counts as 'opened' straight away.
+  useEffect(() => { onDoorOpenChange?.(true) }, [onDoorOpenChange])
+
+  return (
+    <section className="relative min-h-screen overflow-hidden">
+      <HeroBackdrop />
+      <BackgroundVideo visible playing={false} />
     </section>
   )
 }
 
-/** Desktop cinematic hero — scroll-scrubbed, chroma-keyed, zooming closet portal. */
-function CinematicHeroDesktop({ onCTA, showStylistLink, onStylistClick }: CinematicClosetHeroProps) {
+/** Lightweight mobile hero — just the looping background video, no chroma key / scroll scrub. */
+function MobileVideoHero({ onDoorOpenChange }: CinematicClosetHeroProps) {
+  // No door animation here, so the page counts as 'opened' straight away.
+  useEffect(() => { onDoorOpenChange?.(true) }, [onDoorOpenChange])
+
+  return (
+    <section className="relative min-h-screen overflow-hidden">
+      <HeroBackdrop />
+      <BackgroundVideo visible />
+    </section>
+  )
+}
+
+/**
+ * Desktop cinematic hero — scroll-scrubbed, chroma-keyed closet on the cream
+ * backdrop. The background video starts the moment the door begins to open,
+ * visible only through the doorway — a window that widens with the doors and
+ * the zoom. Once the door is fully open the same video is revealed
+ * full-bleed underneath, and the rest of the scroll zooms the closet past the
+ * camera and fades it off-screen, leaving just the video.
+ */
+function CinematicHeroDesktop({ onDoorOpenChange }: CinematicClosetHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const backgroundVideoRef = useRef<HTMLVideoElement>(null)
+  // True from the moment the door starts to move — starts the background video (seen through the doorway).
+  const [doorOpening, setDoorOpening] = useState(false)
+  // True once the door has fully opened — until then the backdrop, not the video, sits behind the closet.
+  const [doorOpen, setDoorOpen] = useState(false)
+  const handleOpenChange = useCallback((open: boolean) => {
+    setDoorOpen(open)
+    onDoorOpenChange?.(open)
+  }, [onDoorOpenChange])
 
   const { isReady, hasError } = useCinematicChromaHero({
     containerRef,
     videoRef,
     canvasRef,
-    contentRef,
+    innerVideoRef: backgroundVideoRef,
+    innerRect: DOORWAY_RECT,
     zoomTo: 2.6,
-    openFraction: 0.6,
+    // Closet keeps zooming (to ~2x its open size) while it fades, so it
+    // exits past the camera once the door has finished opening.
+    exitZoom: 1,
+    // Most of the runway is the door opening; the last 25% is the exit.
+    openFraction: 0.75,
     enabled: true,
+    onOpenChange: handleOpenChange,
+    onOpeningChange: setDoorOpening,
   })
 
   if (hasError) {
-    return <StaticHero onCTA={onCTA} showStylistLink={showStylistLink} onStylistClick={onStylistClick} />
+    return <StaticHero onDoorOpenChange={onDoorOpenChange} />
   }
 
   return (
@@ -110,16 +173,16 @@ function CinematicHeroDesktop({ onCTA, showStylistLink, onStylistClick }: Cinema
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         <HeroBackdrop />
 
-        {/* Hero copy — scales/fades in centred, in lockstep with the door
-            opening (same eased progress drives both), driven imperatively by
-            the hook via this ref (not React state, to stay off the render
-            path). No z-index here: it must stay BELOW the canvas in the
-            stacking order (an explicit z-index would paint above the canvas
-            regardless of DOM order), since the video's alpha holes are what
-            reveal it underneath. */}
-        <div ref={contentRef} className="absolute inset-0 h-full flex items-center justify-center px-6" style={{ opacity: 0 }}>
-          <HeroCopy onCTA={onCTA} showStylistLink={showStylistLink} onStylistClick={onStylistClick} animate={false} align="center" />
-        </div>
+        {/* Background video — the room behind the door. Starts playing as
+            the door starts to open, but stays hidden here: until the door is
+            fully open it's drawn only inside the doorway, by the canvas
+            (same element, so both show the same frame), with the cream
+            backdrop around the closet. Revealed full-bleed once fully open. */}
+        <BackgroundVideo
+          videoRef={backgroundVideoRef}
+          visible={isReady && doorOpen}
+          playing={isReady && doorOpening}
+        />
 
         {/* Closet video layer — chroma-keyed transparent portal, zooms toward
             centre while opening, then fades out completely. */}
@@ -147,11 +210,6 @@ function CinematicHeroDesktop({ onCTA, showStylistLink, onStylistClick }: Cinema
             <div className="w-8 h-8 rounded-full border-2 border-butter-yellow/30 border-t-butter-yellow animate-spin" />
           </div>
         )}
-
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-text-primary/30">
-          <span className="text-2xs uppercase tracking-widest">Scroll</span>
-          <div className="w-px h-8 bg-gradient-to-b from-text-primary/30 to-transparent" />
-        </div>
       </div>
     </section>
   )

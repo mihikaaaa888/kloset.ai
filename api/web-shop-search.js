@@ -1,3 +1,5 @@
+import { isProductPage } from '../server/productPages.mjs'
+
 const RETAILER_DOMAINS = {
   zara: 'zara.com',
   hm: 'hm.com',
@@ -97,7 +99,9 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         query: trimmedQuery,
         type: 'auto',
-        numResults: 12,
+        // Over-fetch: listing pages get filtered out below, and the rest
+        // still needs to fill a row of product cards.
+        numResults: 30,
         includeDomains,
         contents: {
           text: { maxCharacters: 280 },
@@ -112,7 +116,14 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json()
-    const results = (data.results ?? []).map((r) => {
+    const raw = data.results ?? []
+    // Stable sort, US pages first *before* capping — keeps Exa's relevance
+    // order within each group, and regional duplicates can't crowd US
+    // products out of the 12 we keep.
+    const productHits = raw
+      .filter((r) => isProductPage(r.url))
+      .sort((a, b) => Number(isLikelyNonUS(a.url)) - Number(isLikelyNonUS(b.url)))
+    const results = productHits.slice(0, 12).map((r) => {
       const domain = domainOf(r.url)
       return {
         id: r.id ?? r.url,
@@ -125,13 +136,9 @@ export default async function handler(req, res) {
       }
     })
 
-    // Stable sort — keeps Exa's relevance order within each group, just
-    // prefers likely-US/English pages over regional ones.
-    results.sort((a, b) => Number(isLikelyNonUS(a.url)) - Number(isLikelyNonUS(b.url)))
-
     webShopCache.set(cacheKey, { results, expiresAt: Date.now() + WEB_SHOP_CACHE_TTL_MS })
     const nonUSCount = results.filter((r) => isLikelyNonUS(r.url)).length
-    console.log(`[web-shop-search] "${trimmedQuery}" (${includeDomains.join(',')}) → ${results.length} results (${nonUSCount} non-US deprioritized)`)
+    console.log(`[web-shop-search] "${trimmedQuery}" (${includeDomains.join(',')}) → ${results.length} product pages (${raw.length - productHits.length} listing pages dropped, ${nonUSCount} non-US deprioritized)`)
     return res.json({ results })
   } catch (e) {
     console.error('[web-shop-search] Exa error:', e?.message ?? e)

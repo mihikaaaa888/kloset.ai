@@ -712,11 +712,12 @@ const CATEGORY_IMAGE_POOL: Record<ClothingCategory, PoolImage[]> = {
 // Buy/rent price bands per price tier (USD). Rent is priced per week, at
 // roughly 8-12% of the buy price, the way real rental marketplaces price
 // against retail value.
+// Indian retail price points, in rupees.
 const PRICE_BAND: Record<CatalogItem['priceRange'], [number, number]> = {
-  budget: [25, 55],
-  mid: [60, 140],
-  premium: [150, 380],
-  luxury: [400, 950],
+  budget: [999, 2400],
+  mid: [2500, 5900],
+  premium: [6000, 14500],
+  luxury: [15000, 40000],
 }
 
 // Small deterministic hash so the same item always gets the same "random"
@@ -747,8 +748,9 @@ function enrichCatalogItem(item: RawCatalogItem, categoryIndex: number): Catalog
 
   const hash = hashString(item.id)
   const [lo, hi] = PRICE_BAND[item.priceRange]
-  const estimatedPrice = Math.round((lo + (hash % 100) / 100 * (hi - lo)) / 5) * 5
-  const rentPricePerWeek = Math.max(8, Math.round((estimatedPrice * (0.08 + (hash % 40) / 1000)) / 2) * 2)
+  // Rounded to a retail-style ₹x,x99 price, and a weekly rental of ~8–12% (min ₹299).
+  const estimatedPrice = Math.round((lo + (hash % 100) / 100 * (hi - lo)) / 100) * 100 - 1
+  const rentPricePerWeek = Math.max(299, Math.round((estimatedPrice * (0.08 + (hash % 40) / 1000)) / 50) * 50 - 1)
 
   const query = encodeURIComponent(`${item.name} ${item.material}`)
   const shopUrl = `https://www.google.com/search?tbm=shop&q=${query}`

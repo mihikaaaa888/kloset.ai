@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Sparkles, RotateCcw, Plus, Check, ExternalLink } from 'lucide-react'
+import { Send, RotateCcw, Plus, Check, ExternalLink } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import { sendChatMessage, type ChatMessage } from '@/lib/chatService'
-import { searchWebShop, type Retailer } from '@/lib/webShopService'
+import { searchWebShop, cleanProductTitle } from '@/lib/webShopService'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useUserStore } from '@/store/userStore'
 import { useChatStore } from '@/store/chatStore'
@@ -30,40 +31,17 @@ function findMentionedCatalogItems(content: string): CatalogItem[] {
 }
 
 // Kaia is instructed (see server's system prompt) to end a genuine external
-// brand recommendation with [[SHOP: <query>]] — a machine-readable tag, not
-// meant to be shown. We strip it from the displayed text and use the query
-// to run a live Exa search, so the recommendation resolves to a real,
-// current product link instead of a name she can't verify.
-const SHOP_TAG_RE = /\[\[SHOP:\s*([^\]]+)\]\]/i
+// brand recommendation with [[SHOP: <slot> | <query>]] — a machine-readable
+// tag, not meant to be shown. We strip it from the displayed text and use the
+// query to run a live Exa search, so the recommendation resolves to a real,
+// current product link instead of a name she can't verify. The slot is for
+// the server's outfit check; older messages without one still parse.
+const SHOP_TAG_RE = /\[\[SHOP:\s*(?:[a-z]+\s*\|\s*)?([^\]]+)\]\]/i
 
 function extractShopQuery(content: string): { text: string; query: string | null } {
   const match = content.match(SHOP_TAG_RE)
   if (!match) return { text: content, query: null }
   return { text: content.replace(SHOP_TAG_RE, '').trim(), query: match[1].trim() }
-}
-
-// The [[SHOP: ...]] tag has no memory of which brand Kaia actually named in
-// her visible text — left alone, the search would run against every
-// retailer and could surface a different brand than the one she said,
-// contradicting her own reply. Detecting the brand mention directly in the
-// displayed text (the one source of truth for what the user read) and
-// locking the search to it is more reliable than trusting the model to also
-// encode it correctly in the tag every time.
-const RETAILER_MENTION_PATTERNS: { key: Retailer; pattern: RegExp }[] = [
-  { key: 'stories', pattern: /&\s*other\s*stories/i },
-  { key: 'hm', pattern: /\bH\s*&\s*M\b/i },
-  { key: 'zara', pattern: /\bZara\b/i },
-  { key: 'cos', pattern: /\bCOS\b/ },
-  { key: 'uniqlo', pattern: /\bUniqlo\b/i },
-  { key: 'mango', pattern: /\bMango\b/i },
-  { key: 'everlane', pattern: /\bEverlane\b/i },
-]
-
-function detectRetailerMention(text: string): Retailer | null {
-  for (const { key, pattern } of RETAILER_MENTION_PATTERNS) {
-    if (pattern.test(text)) return key
-  }
-  return null
 }
 
 export function StylistChat({ initialPrompt }: { initialPrompt?: string }) {
@@ -429,14 +407,13 @@ function MessageBubble({
     ? { text: message.content, query: null as string | null }
     : extractShopQuery(message.content)
   const mentioned = isUser ? [] : findMentionedCatalogItems(text)
-  const mentionedRetailer = shopQuery ? detectRetailerMention(text) : null
 
   return (
     <div className={clsx('flex flex-col', isUser ? 'items-end' : 'items-start')}>
       <div className="flex w-full" style={{ justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
         {!isUser && (
           <div className="w-7 h-7 rounded-full bg-dark-purple flex items-center justify-center flex-shrink-0 mt-0.5 mr-2.5">
-            <Sparkles size={13} className="text-butter-yellow" />
+            <HangerIcon size={13} className="text-butter-yellow" />
           </div>
         )}
         <div
@@ -451,7 +428,7 @@ function MessageBubble({
         </div>
       </div>
 
-      {shopQuery && <ExternalShopSuggestion query={shopQuery} retailer={mentionedRetailer} />}
+      {shopQuery && <ExternalShopSuggestion query={shopQuery} />}
 
       {/* Real catalog pieces Kaia named — add them to the Kloset directly, or shop/rent, without leaving the chat. */}
       {mentioned.length > 0 && (
@@ -486,16 +463,15 @@ function MessageBubble({
 // search (see src/lib/webShopService.ts). Fails silently — no key, no
 // results, or an upstream error all just mean no card renders, rather than
 // cluttering the chat with an error state for what's a bonus, not the reply.
-function ExternalShopSuggestion({ query, retailer }: { query: string; retailer: Retailer | null }) {
+// Brand names are never shown — just the piece and a link.
+function ExternalShopSuggestion({ query }: { query: string }) {
   const [status, setStatus] = useState<'loading' | 'done' | 'none'>('loading')
   const [results, setResults] = useState<WebShopResult[]>([])
 
   useEffect(() => {
     let cancelled = false
     setStatus('loading')
-    // Locked to the single brand Kaia named in her text, when we could detect
-    // one — otherwise falls back to searching across all retailers.
-    searchWebShop(query, retailer ? [retailer] : undefined)
+    searchWebShop(query)
       .then(({ results: found, noKey, error }) => {
         if (cancelled) return
         if (noKey || error || !found.length) {
@@ -511,7 +487,7 @@ function ExternalShopSuggestion({ query, retailer }: { query: string; retailer: 
     return () => {
       cancelled = true
     }
-  }, [query, retailer])
+  }, [query])
 
   if (status === 'none') return null
 
@@ -519,7 +495,7 @@ function ExternalShopSuggestion({ query, retailer }: { query: string; retailer: 
     return (
       <div className="flex items-center gap-2 mt-2 ml-9 text-2xs text-text-muted">
         <div className="w-3 h-3 border-2 border-text-primary/15 border-t-dark-purple rounded-full animate-spin" />
-        Finding a real link for &ldquo;{query}&rdquo;…
+        Finding pieces for &ldquo;{query}&rdquo;…
       </div>
     )
   }
@@ -539,7 +515,7 @@ function ExternalShopSuggestion({ query, retailer }: { query: string; retailer: 
           ) : (
             <ExternalLink size={12} className="flex-shrink-0" />
           )}
-          {r.retailer}: {r.title}
+          {cleanProductTitle(r.title)}
         </a>
       ))}
     </div>
@@ -550,7 +526,7 @@ function TypingIndicator() {
   return (
     <div className="flex items-center gap-2.5">
       <div className="w-7 h-7 rounded-full bg-dark-purple flex items-center justify-center flex-shrink-0">
-        <Sparkles size={13} className="text-butter-yellow" />
+        <HangerIcon size={13} className="text-butter-yellow" />
       </div>
       <div className="bg-white shadow-card px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-1.5">
         {[0, 1, 2].map((i) => (
@@ -569,7 +545,7 @@ function EmptyState({ onPrompt }: { onPrompt: (p: string) => void }) {
   return (
     <div className="flex flex-col items-center py-8">
       <div className="w-14 h-14 rounded-full bg-dark-purple flex items-center justify-center mb-4">
-        <Sparkles size={22} className="text-butter-yellow" />
+        <HangerIcon size={22} className="text-butter-yellow" />
       </div>
       <h3 className="font-display text-xl font-medium text-text-primary mb-1">Meet Kaia</h3>
       <p className="text-text-muted text-sm text-center max-w-xs mb-8">

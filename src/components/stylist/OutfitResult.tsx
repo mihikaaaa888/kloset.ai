@@ -1,4 +1,6 @@
-import { RefreshCw, BookMarked, Check, Sparkles, ChevronRight, Shirt } from 'lucide-react'
+import { RefreshCw, BookMarked, Check, Shirt } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
+import { CompleteTheLook } from '@/components/stylist/CompleteTheLook'
 import { clsx } from 'clsx'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -46,151 +48,162 @@ export function OutfitResult({
   const footwearItems = items.filter((i) => i.role === 'shoes')
   const accItems = items.filter((i) => i.role === 'accessory')
 
+  const secondaryItems = [...layerItems, ...footwearItems, ...accItems]
+  const palette = [...new Set(items.flatMap((i) => i.item.colour))].slice(0, 6)
+
   return (
-    <div className="animate-fade-up space-y-8">
-      {/* ── Outfit header ── */}
-      <div>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium text-charcoal-900 leading-tight">
-              {name}
-            </h2>
-            {colourSubtitle && (
-              <p className="text-charcoal-400 text-sm mt-1 font-medium tracking-wide">
-                {colourSubtitle}
-              </p>
-            )}
+    <div className="animate-fade-up grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+      {/* ══ Left: the outfit itself ══════════════════════════════════════════ */}
+      <div className="lg:col-span-7 space-y-6">
+        {/* ── Outfit header ── */}
+        <div>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-display text-4xl sm:text-5xl font-medium text-charcoal-900 leading-[1.05]">
+                {name}
+              </h2>
+              {colourSubtitle && (
+                <p className="text-charcoal-400 text-sm mt-2 font-medium tracking-wide">
+                  {colourSubtitle}
+                </p>
+              )}
+            </div>
+            <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-charcoal-900 flex items-center justify-center">
+              <HangerIcon size={20} className="text-gold" />
+            </div>
           </div>
-          <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-charcoal-900 flex items-center justify-center">
-            <Sparkles size={20} className="text-gold" />
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Badge variant="dark">{OCCASION_LABELS[occasion]}</Badge>
+            <Badge variant="neutral">{WEATHER_LABELS[weather]}</Badge>
+            <Badge variant="gold">{MOOD_LABELS[mood]}</Badge>
           </div>
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          <Badge variant="dark">{OCCASION_LABELS[occasion]}</Badge>
-          <Badge variant="neutral">{WEATHER_LABELS[weather]}</Badge>
-          <Badge variant="gold">{MOOD_LABELS[mood]}</Badge>
-        </div>
-      </div>
-
-      {/* ── Outfit items grid ── */}
-      <div className="space-y-3">
-        {/* Main items (top + bottom, or dress) */}
-        <div
-          className={clsx(
-            'grid gap-3',
-            mainItems.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-          )}
-        >
+        {/* ── Main pieces (top + bottom, or dress) — tall, side by side ── */}
+        <div className={clsx('grid gap-4', mainItems.length === 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2')}>
           {mainItems.map((result) => (
             <OutfitItemTile key={result.item.id} result={result} featured />
           ))}
         </div>
 
-        {/* Outerwear */}
-        {layerItems.length > 0 && (
-          <div className="grid grid-cols-1 gap-3">
-            {layerItems.map((result) => (
-              <OutfitItemTile key={result.item.id} result={result} />
-            ))}
-          </div>
-        )}
-
-        {/* Shoes + Accessories */}
-        {(footwearItems.length > 0 || accItems.length > 0) && (
-          <div
-            className={clsx(
-              'grid gap-3',
-              footwearItems.length + accItems.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-            )}
-          >
-            {[...footwearItems, ...accItems].map((result) => (
+        {/* ── Outerwear, shoes, accessories — compact grid ── */}
+        {secondaryItems.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {secondaryItems.map((result) => (
               <OutfitItemTile key={result.item.id} result={result} />
             ))}
           </div>
         )}
       </div>
 
-      {/* ── Why it works ── */}
-      {whyItWorks && (
-        <div className="rounded-3xl bg-charcoal-900 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={14} className="text-gold" />
-            <span className="text-gold text-xs font-medium uppercase tracking-widest">
-              Why this works
-            </span>
-          </div>
-          <p className="text-cream-50/80 text-sm leading-relaxed">{whyItWorks}</p>
+      {/* ══ Right: tips, reasoning, actions — sticks alongside on desktop ═════ */}
+      <aside className="lg:col-span-5 lg:sticky lg:top-28 space-y-5">
+        {/* ── Styling tips ── */}
+        {stylingTips.length > 0 && (
+          <div className="relative overflow-hidden rounded-3xl bg-butter-yellow p-7 shadow-lifted">
+            {/* Oversized hanger watermark */}
+            <HangerIcon
+              size={220}
+              strokeWidth={1}
+              className="absolute -right-12 -bottom-16 text-dark-purple/10 rotate-[-12deg] pointer-events-none"
+            />
 
-          {/* Colour dots */}
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-charcoal-700">
-            <span className="text-charcoal-400 text-2xs uppercase tracking-widest">Palette</span>
-            <div className="flex gap-1.5">
-              {[...new Set(items.flatMap((i) => i.item.colour))].slice(0, 6).map((c) => (
-                <div
-                  key={c}
-                  title={c}
-                  className="w-4 h-4 rounded-full ring-1 ring-white/10"
-                  style={{ backgroundColor: colourNameToHex(c) }}
-                />
-              ))}
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <HangerIcon size={14} className="text-gold-light" />
+                <span className="text-gold-light text-xs font-medium uppercase tracking-widest">
+                  Styling tips
+                </span>
+              </div>
+              <p className="font-display italic text-2xl text-dark-purple mb-6">
+                How to wear it
+              </p>
+
+              <ol className="divide-y divide-dark-purple/15">
+                {stylingTips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-5 py-4 first:pt-0 last:pb-0">
+                    <span className="font-display italic text-4xl leading-none text-gold-light/90 w-10 flex-shrink-0 tabular-nums">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <p className="text-sm text-dark-purple/90 leading-relaxed pt-1">{tip}</p>
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Styling tips ── */}
-      {stylingTips.length > 0 && (
-        <div className="rounded-3xl bg-cream-100 p-6">
-          <p className="text-xs font-medium text-charcoal-400 uppercase tracking-widest mb-4">
-            Styling tips
-          </p>
-          <ul className="space-y-3">
-            {stylingTips.map((tip, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <ChevronRight size={14} className="text-gold mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-charcoal-700 leading-relaxed">{tip}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {/* ── Why it works ── */}
+        {whyItWorks && (
+          <div className="rounded-3xl bg-charcoal-900 p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <HangerIcon size={14} className="text-gold" />
+              <span className="text-gold text-xs font-medium uppercase tracking-widest">
+                Why this works
+              </span>
+            </div>
+            <p className="text-cream-50/80 text-sm leading-relaxed">{whyItWorks}</p>
 
-      {/* ── Actions ── */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        <Button
-          variant={isSaved ? 'secondary' : 'primary'}
-          size="lg"
-          onClick={onSave}
-          disabled={isSaved}
-          fullWidth
-          className="gap-2"
-        >
-          {isSaved ? (
-            <>
-              <Check size={16} />
-              Outfit Saved
-            </>
-          ) : (
-            <>
-              <BookMarked size={16} />
-              Save Outfit
-            </>
-          )}
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={onTryAnother}
-          loading={isRegenerating}
-          fullWidth
-          className="gap-2"
-        >
-          <RefreshCw size={16} className={isRegenerating ? 'animate-spin' : ''} />
-          Try Another
-        </Button>
-      </div>
+            {/* Palette */}
+            {palette.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-charcoal-700">
+                <span className="text-charcoal-400 text-2xs uppercase tracking-widest">Palette</span>
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {palette.map((c) => (
+                    <div key={c} className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-full ring-1 ring-white/15"
+                        style={{ backgroundColor: colourNameToHex(c) }}
+                      />
+                      <span className="text-cream-50/60 text-2xs capitalize">{c}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Pieces to buy for whatever the Kloset couldn't supply ── */}
+        <CompleteTheLook suggestion={suggestion} />
+
+        {/* ── Actions ── */}
+        <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-3">
+          <Button
+            variant={isSaved ? 'secondary' : 'primary'}
+            size="lg"
+            onClick={onSave}
+            disabled={isSaved}
+            fullWidth
+            className="gap-2"
+          >
+            {isSaved ? (
+              <>
+                <Check size={16} />
+                Outfit Saved
+              </>
+            ) : (
+              <>
+                <BookMarked size={16} />
+                Save Outfit
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={onTryAnother}
+            loading={isRegenerating}
+            fullWidth
+            className="gap-2"
+          >
+            <RefreshCw size={16} className={isRegenerating ? 'animate-spin' : ''} />
+            Try Another
+          </Button>
+        </div>
+      </aside>
     </div>
   )
 }
@@ -213,7 +226,7 @@ function OutfitItemTile({
   return (
     <div className="rounded-3xl overflow-hidden bg-white shadow-card">
       {/* Image / placeholder */}
-      <div className={clsx('relative', featured ? 'aspect-[4/3]' : 'aspect-[3/2]')}>
+      <div className={clsx('relative', featured ? 'aspect-[3/4]' : 'aspect-square')}>
         {imageUrl ? (
           <img
             src={imageUrl}

@@ -1,4 +1,5 @@
-import { Heart, Sparkles } from 'lucide-react'
+import { Heart } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import type { ClothingItem } from '@/types'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
@@ -104,7 +105,7 @@ export function ClothingCard({ item, onClick, onToggleFavourite, onStyleThis }: 
               aria-label="Style this item"
               className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-dark-purple text-butter-yellow text-2xs font-medium opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-deep-purple"
             >
-              <Sparkles size={10} />
+              <HangerIcon size={10} />
               Style this
             </button>
           )}

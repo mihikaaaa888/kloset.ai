@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Sparkles, Shirt, MessageCircle, Check } from 'lucide-react'
+import { ArrowLeft, Shirt, Check } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 
 import { StyleRequestForm } from '@/components/stylist/StyleRequestForm'
@@ -129,32 +130,30 @@ export function StylistPage() {
 
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
-      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+      {/* Results get the full width (outfit + side panel); forms stay narrow and focused. */}
+      <div className={clsx(
+        'mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10',
+        mode !== 'chat' && pageState === 'result' ? 'max-w-6xl' : 'max-w-2xl'
+      )}>
 
         {/* ── Mode tabs ── */}
-        {mode !== 'chat' || pageState !== 'mode-select' ? null : null}
-        <div className="flex gap-1 p-1 rounded-2xl bg-text-primary/5 mb-8">
+        <nav className="flex justify-center gap-8 sm:gap-12 mb-10" aria-label="Stylist mode">
           {([
-            { id: 'wardrobe', label: 'Style My Wardrobe', icon: <Sparkles size={14} /> },
-            { id: 'item', label: 'Style an Item', icon: <Shirt size={14} /> },
-            { id: 'chat', label: 'Chat with Kaia', icon: <MessageCircle size={14} /> },
-          ] as { id: StylistMode; label: string; icon: React.ReactNode }[]).map((tab) => (
+            { id: 'wardrobe', label: 'Style My Wardrobe', short: 'Wardrobe' },
+            { id: 'item', label: 'Style an Item', short: 'Item' },
+            { id: 'chat', label: 'Chat with Kaia', short: 'Chat' },
+          ] as { id: StylistMode; label: string; short: string }[]).map((tab) => (
             <button
               key={tab.id}
               onClick={() => selectMode(tab.id)}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200',
-                mode === tab.id
-                  ? 'bg-dark-purple text-butter-yellow shadow-soft'
-                  : 'text-text-muted hover:text-text-primary'
-              )}
+              aria-current={mode === tab.id ? 'page' : undefined}
+              className={clsx('text-tab sm:text-sm', mode === tab.id && 'text-tab-active')}
             >
-              {tab.icon}
               <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.id === 'wardrobe' ? 'Wardrobe' : tab.id === 'item' ? 'Item' : 'Chat'}</span>
+              <span className="sm:hidden">{tab.short}</span>
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* ── Mode: Chat ── */}
         {mode === 'chat' && <StylistChat />}
@@ -179,7 +178,7 @@ export function StylistPage() {
                   <>
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-10 h-10 rounded-2xl bg-dark-purple flex items-center justify-center">
-                        <Sparkles size={18} className="text-butter-yellow" />
+                        <HangerIcon size={18} className="text-butter-yellow" />
                       </div>
                       <p className="text-butter-yellow text-xs font-medium uppercase tracking-ultra-wide">AI Stylist</p>
                     </div>
@@ -228,7 +227,7 @@ export function StylistPage() {
               <>
                 {mode === 'item' && pinnedItem && (
                   <div className="mb-4 flex items-center gap-2 text-xs text-text-muted">
-                    <Sparkles size={12} className="text-text-primary/40" />
+                    <HangerIcon size={12} className="text-text-primary/40" />
                     Styled around <span className="font-medium text-text-primary">{pinnedItem.name}</span>
                   </div>
                 )}
@@ -260,17 +259,12 @@ function ItemPicker({ items, onSelect }: { items: ClothingItem[]; onSelect: (ite
   return (
     <div>
       {/* Category filter */}
-      <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex gap-6 mb-5 overflow-x-auto no-scrollbar pb-1">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={clsx(
-              'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0',
-              activeCategory === cat
-                ? 'bg-dark-purple text-butter-yellow'
-                : 'bg-white border border-text-primary/15 text-text-muted hover:text-text-primary'
-            )}
+            className={clsx('text-tab flex-shrink-0', activeCategory === cat && 'text-tab-active')}
           >
             {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
           </button>
@@ -409,7 +403,7 @@ function LoadingState({ occasion }: { occasion?: string }) {
         <div className="absolute inset-0 rounded-full border-2 border-text-primary/10 animate-ping opacity-30" />
         <div className="absolute inset-2 rounded-full border-2 border-text-primary/10 animate-ping opacity-20" style={{ animationDelay: '150ms' }} />
         <div className="w-20 h-20 rounded-full bg-dark-purple flex items-center justify-center">
-          <Sparkles size={28} className="text-butter-yellow animate-pulse" />
+          <HangerIcon size={28} className="text-butter-yellow animate-pulse" />
         </div>
       </div>
       <p className="font-display text-xl text-text-primary mb-2">

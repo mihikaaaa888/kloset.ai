@@ -1,4 +1,5 @@
-import { Trash2, Sparkles, ChevronRight, Shirt } from 'lucide-react'
+import { Trash2, ChevronRight, Shirt } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -103,7 +104,7 @@ export function SavedOutfitDetailModal({
           {outfit.whyItWorks && (
             <div className="rounded-3xl bg-charcoal-900 p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={13} className="text-gold" />
+                <HangerIcon size={13} className="text-gold" />
                 <span className="text-gold text-2xs font-medium uppercase tracking-widest">
                   Why this works
                 </span>
@@ -153,7 +154,7 @@ export function SavedOutfitDetailModal({
               fullWidth
               className="gap-2"
             >
-              <Sparkles size={14} />
+              <HangerIcon size={14} />
               Style Similar
             </Button>
             <Button

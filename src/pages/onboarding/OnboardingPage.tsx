@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowRight, Check, Sparkles } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 
 import { OnboardingLayout } from './OnboardingLayout'
@@ -475,17 +476,12 @@ function Step4Catalogue({
       />
 
       {/* Category tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex gap-6 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
         {CATALOGUE_CATEGORIES.map((cat) => (
           <button
             key={cat.value}
             onClick={() => setActiveCategory(cat.value)}
-            className={clsx(
-              'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 flex-shrink-0',
-              activeCategory === cat.value
-                ? 'bg-dark-purple text-butter-yellow'
-                : 'bg-text-primary/8 text-text-muted hover:bg-text-primary/15'
-            )}
+            className={clsx('text-tab flex-shrink-0', activeCategory === cat.value && 'text-tab-active')}
           >
             {cat.label}
           </button>
@@ -825,7 +821,7 @@ function Step10Frequency({
           disabled={!canAdvance}
           className="group"
         >
-          <Sparkles size={16} />
+          <HangerIcon size={16} />
           Build My Kloset
           <ArrowRight
             size={16}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 
 import { SavedOutfitCard } from '@/components/saved/SavedOutfitCard'
 import { SavedOutfitDetailModal } from '@/components/saved/SavedOutfitDetailModal'
@@ -96,7 +96,7 @@ function EmptyState({ onGoToStylist }: { onGoToStylist: () => void }) {
   return (
     <div className="py-20 flex flex-col items-center text-center px-4">
       <div className="w-20 h-20 rounded-3xl bg-dark-purple flex items-center justify-center mb-6">
-        <Sparkles size={32} className="text-butter-yellow" />
+        <HangerIcon size={32} className="text-butter-yellow" />
       </div>
       <h2 className="font-display text-2xl font-medium text-text-primary mb-2">
         No saved outfits yet
@@ -105,7 +105,7 @@ function EmptyState({ onGoToStylist }: { onGoToStylist: () => void }) {
         Generate an outfit with your AI stylist and save the ones you love to find them here.
       </p>
       <Button size="lg" onClick={onGoToStylist} className="gap-2">
-        <Sparkles size={16} />
+        <HangerIcon size={16} />
         Open AI Stylist
       </Button>
     </div>

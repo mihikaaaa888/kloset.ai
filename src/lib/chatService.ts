@@ -19,20 +19,37 @@ function buildShopSummary(): string {
   }
   return [...perCategory.values()]
     .flat()
-    .map((i) => `- ${i.name} (${i.category}) — buy ~$${i.estimatedPrice}, rent ~$${i.rentPricePerWeek}/wk`)
+    .map((i) => `- ${i.name} (${i.category}) — buy ~₹${i.estimatedPrice}, rent ~₹${i.rentPricePerWeek}/wk`)
     .join('\n')
+}
+
+// Grouped under the outfit slot each piece fills, so Kaia can see at a
+// glance that jeans and trousers are both a Bottom and never pair them.
+const SLOT_HEADINGS: Record<ClothingCategory, string> = {
+  tops: 'Top',
+  bottoms: 'Bottom',
+  dresses: 'Dress',
+  outerwear: 'Outerwear',
+  shoes: 'Shoes',
+  accessories: 'Accessory',
 }
 
 function buildWardrobeSummary(items: ClothingItem[]): string {
   if (items.length === 0) return ''
-  return items
-    .map((item) => {
-      const parts = [item.name, item.category]
-      if (item.colour.length) parts.push(item.colour.join('/'))
-      if (item.material) parts.push(item.material)
-      if (item.subcategory) parts.push(item.subcategory)
-      return `- ${parts.join(', ')}`
+  return (Object.keys(SLOT_HEADINGS) as ClothingCategory[])
+    .map((category) => {
+      const inSlot = items.filter((i) => i.category === category)
+      if (!inSlot.length) return null
+      const lines = inSlot.map((item) => {
+        const parts = [item.name]
+        if (item.subcategory) parts.push(item.subcategory)
+        if (item.colour.length) parts.push(item.colour.join('/'))
+        if (item.material) parts.push(item.material)
+        return `- ${parts.join(', ')}`
+      })
+      return `${SLOT_HEADINGS[category]}:\n${lines.join('\n')}`
     })
+    .filter(Boolean)
     .join('\n')
 }
 
@@ -132,6 +149,8 @@ export async function sendChatMessage(
       profileSummary,
       stylePreferencesSummary,
       shopSummary,
+      // Lets the server check each outfit line against the real category.
+      wardrobeItems: wardrobe.map((i) => ({ name: i.name, category: i.category })),
     }),
   })
 

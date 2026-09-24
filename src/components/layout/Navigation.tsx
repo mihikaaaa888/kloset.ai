@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { Home, Shirt, Sparkles, BookMarked, User, Menu, X, LogOut, Compass } from 'lucide-react'
+import { Home, Shirt, BookMarked, User, Menu, X, Compass } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { useUserStore } from '@/store/userStore'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -12,21 +13,20 @@ interface NavItem {
   requiresAuth?: boolean
 }
 
-const publicNavItems: NavItem[] = [
+export const publicNavItems: NavItem[] = [
   { label: 'Home', to: '/', icon: <Home size={18} /> },
 ]
 
-const authNavItems: NavItem[] = [
+export const authNavItems: NavItem[] = [
   { label: 'Home', to: '/home', icon: <Home size={18} />, requiresAuth: true },
   { label: 'My Kloset', to: '/wardrobe', icon: <Shirt size={18} />, requiresAuth: true },
-  { label: 'Discover', to: '/discover', icon: <Compass size={18} />, requiresAuth: true },
-  { label: 'AI Stylist', to: '/stylist', icon: <Sparkles size={18} />, requiresAuth: true },
+  { label: 'Shop', to: '/discover', icon: <Compass size={18} />, requiresAuth: true },
+  { label: 'AI Stylist', to: '/stylist', icon: <HangerIcon size={18} />, requiresAuth: true },
   { label: 'Saved', to: '/saved', icon: <BookMarked size={18} />, requiresAuth: true },
   { label: 'Profile', to: '/profile', icon: <User size={18} />, requiresAuth: true },
 ]
 
 export function Navigation() {
-  const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -37,20 +37,6 @@ export function Navigation() {
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname)
   const isLanding = location.pathname === '/'
 
-  useEffect(() => {
-    // On the landing page, the cinematic hero is pinned for several viewport
-    // heights — wait until it's been scrolled past (rather than 20px) before
-    // the nav turns solid, so it doesn't cut over the closet scene mid-scroll.
-    const handler = () => {
-      const cinematicHero = document.getElementById('cinematic-hero')
-      const threshold = cinematicHero ? cinematicHero.offsetHeight - window.innerHeight - 40 : 20
-      setScrolled(window.scrollY > Math.max(20, threshold))
-    }
-    handler()
-    window.addEventListener('scroll', handler, { passive: true })
-    return () => window.removeEventListener('scroll', handler)
-  }, [location.pathname])
-
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
   const handleSignOut = async () => {
@@ -58,19 +44,13 @@ export function Navigation() {
     navigate('/')
   }
 
-  if (isOnboarding || isAuthPage) return null
-
-  const solidNav = scrolled || !isLanding
+  // The landing page has no top nav — its links live in the footer instead.
+  if (isOnboarding || isAuthPage || isLanding) return null
 
   return (
     <>
       <header
-        className={clsx(
-          'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-          solidNav
-            ? 'bg-warm-cream/95 backdrop-blur-md border-b border-text-primary/10'
-            : 'bg-transparent'
-        )}
+        className="fixed top-0 left-0 right-0 z-50 bg-warm-cream/95 backdrop-blur-md border-b border-text-primary/10"
       >
         <nav className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
@@ -78,15 +58,15 @@ export function Navigation() {
             {/* Logo */}
             <NavLink to="/" className="flex items-center gap-2" aria-label="Kloset.ai home">
               <span className={clsx(
-                'font-serif text-xl font-medium tracking-tight transition-colors duration-300',
+                'font-brand text-xl tracking-tight transition-colors duration-300',
                 'text-text-primary'
               )}>
-                <span className="font-brand font-bold">Kloset</span><span className="text-butter-yellow">.</span>ai
+                Kloset<span className="text-butter-yellow">.</span>ai
               </span>
             </NavLink>
 
             {/* Desktop nav */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-7 lg:gap-9">
               {(user && profile?.onboardingComplete ? authNavItems : publicNavItems).map((item) => {
                 if (item.requiresAuth && !user) return null
                 if (item.requiresAuth && !profile?.onboardingComplete) return null
@@ -95,12 +75,7 @@ export function Navigation() {
                     key={item.to}
                     to={item.to}
                     end={item.to === '/' || item.to === '/home'}
-                    className={({ isActive }) => clsx(
-                      'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-dark-purple text-butter-yellow'
-                        : 'text-text-muted hover:text-text-primary hover:bg-text-primary/5'
-                    )}
+                    className={({ isActive }) => clsx('text-tab', isActive && 'text-tab-active')}
                   >
                     {item.label}
                   </NavLink>
@@ -119,9 +94,8 @@ export function Navigation() {
               {user && (
                 <button
                   onClick={handleSignOut}
-                  className="ml-2 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 text-text-muted hover:text-text-primary hover:bg-text-primary/5"
+                  className="text-tab ml-4"
                 >
-                  <LogOut size={15} />
                   Sign out
                 </button>
               )}
@@ -144,7 +118,7 @@ export function Navigation() {
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-text-primary/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute top-16 left-0 right-0 bg-warm-cream border-b border-text-primary/10 shadow-lifted animate-fade-up">
-            <div className="px-6 py-6 flex flex-col gap-2">
+            <div className="px-6 py-6 flex flex-col">
               {(user && profile?.onboardingComplete ? authNavItems : publicNavItems).map((item) => {
                 if (item.requiresAuth && !user) return null
                 if (item.requiresAuth && !profile?.onboardingComplete) return null
@@ -154,11 +128,10 @@ export function Navigation() {
                     to={item.to}
                     end={item.to === '/' || item.to === '/home'}
                     className={({ isActive }) => clsx(
-                      'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-colors duration-150',
-                      isActive ? 'bg-dark-purple text-butter-yellow' : 'text-text-primary hover:bg-text-primary/5'
+                      'block py-2.5 text-base uppercase tracking-wider transition-colors',
+                      isActive ? 'text-butter-yellow font-semibold' : 'text-text-primary hover:text-butter-yellow'
                     )}
                   >
-                    {item.icon}
                     {item.label}
                   </NavLink>
                 )
@@ -176,9 +149,8 @@ export function Navigation() {
               {user && (
                 <button
                   onClick={handleSignOut}
-                  className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-text-muted hover:bg-text-primary/5 text-sm font-medium w-full"
+                  className="mt-4 pt-4 border-t border-text-primary/10 text-left py-2.5 text-sm uppercase tracking-wider text-text-muted hover:text-text-primary"
                 >
-                  <LogOut size={16} />
                   Sign out
                 </button>
               )}
@@ -197,8 +169,8 @@ export function Navigation() {
                 to={item.to}
                 end={item.to === '/home'}
                 className={({ isActive }) => clsx(
-                  'flex flex-col items-center gap-1 px-3 py-2 rounded-2xl text-2xs font-medium transition-colors duration-150',
-                  isActive ? 'text-butter-yellow bg-butter-yellow/10' : 'text-text-muted hover:text-text-primary'
+                  'flex flex-col items-center gap-1 px-2 py-2 text-2xs uppercase tracking-wider transition-colors duration-150',
+                  isActive ? 'text-butter-yellow font-semibold' : 'text-text-muted hover:text-text-primary'
                 )}
               >
                 {item.icon}

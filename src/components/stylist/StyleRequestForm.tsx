@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Sparkles, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import { Button } from '@/components/ui/Button'
 import type { StyleRequest, WeatherCondition, Mood } from '@/lib/stylist'
@@ -149,7 +150,7 @@ export function StyleRequestForm({ onSubmit, isLoading }: StyleRequestFormProps)
           loading={isLoading}
           className="group w-full sm:w-auto gap-3"
         >
-          <Sparkles size={18} />
+          <HangerIcon size={18} />
           {isLoading ? 'Styling your look…' : 'Style Me'}
           {!isLoading && (
             <ArrowRight

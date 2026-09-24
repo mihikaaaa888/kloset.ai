@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, ImagePlus, X, ChevronRight, SkipForward, Sparkles, Link, Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { Upload, ImagePlus, X, ChevronRight, SkipForward, Link, Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -637,7 +638,7 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-text-primary">Photo</p>
             {!displayUrl && (
-              <div className="flex rounded-xl overflow-hidden border border-text-primary/15 text-xs font-medium">
+              <div className="flex gap-5">
                 {(
                   [
                     { key: 'upload', icon: <Upload size={11} />, label: 'Upload' },
@@ -649,12 +650,7 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
                     key={key}
                     type="button"
                     onClick={() => { setPhotoTab(key); setUrlError(null); setImageError(null) }}
-                    className={clsx(
-                      'flex items-center gap-1.5 px-3 py-1.5 transition-colors',
-                      photoTab === key
-                        ? 'bg-dark-purple text-butter-yellow'
-                        : 'bg-white text-text-muted hover:text-text-primary'
-                    )}
+                    className={clsx('text-tab', photoTab === key && 'text-tab-active')}
                   >
                     {icon}
                     {label}
@@ -786,7 +782,7 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
           {/* AI auto-fill banner */}
           {aiApplied && (
             <div className="mt-3 flex items-start gap-2.5 px-3 py-2.5 rounded-2xl bg-text-primary/8 border border-text-primary/15">
-              <Sparkles size={13} className="text-butter-yellow mt-0.5 flex-shrink-0" />
+              <HangerIcon size={13} className="text-butter-yellow mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-butter-yellow">Auto-filled from your photo</p>
                 <p className="text-2xs text-text-muted mt-0.5">Review and adjust any fields before saving.</p>

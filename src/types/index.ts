@@ -111,9 +111,9 @@ export interface CatalogItem {
   formality?: string
   /** Reference photo — for browsing/inspiration, not the user's own item photo. */
   imageUrl: string
-  /** Approximate buy price in USD, derived from priceRange. */
+  /** Approximate buy price in INR (rupees), derived from priceRange. */
   estimatedPrice: number
-  /** Approximate weekly rental price in USD. */
+  /** Approximate weekly rental price in INR (rupees). */
   rentPricePerWeek: number
   /** Opens a live shopping search for this piece (not a specific listing we can't verify). */
   shopUrl: string

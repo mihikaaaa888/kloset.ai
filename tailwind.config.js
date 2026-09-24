@@ -55,11 +55,13 @@ export default {
       },
       fontFamily: {
         sans: ['Montserrat', 'system-ui', 'sans-serif'],
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
-        // Just for the "Kloset" wordmark — a licensed display font, not used
-        // for any other UI text.
-        brand: ['Bizantheum', '"Playfair Display"', 'serif'],
+        // Headings — an editorial high-contrast serif with a true italic.
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        // Just for the "Kloset" wordmark. The personal-use build of Mutalis swaps
+        // every digit for a "PERSONAL USE ONLY" watermark, so never use it on
+        // text that can contain numbers.
+        brand: ['"Mutalis Fashion"', '"Times New Roman"', 'serif'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

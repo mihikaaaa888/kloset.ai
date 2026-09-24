@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Sparkles, Shirt, SlidersHorizontal, Compass } from 'lucide-react'
+import { Plus, Search, Shirt, SlidersHorizontal, Compass } from 'lucide-react'
+import { HangerIcon } from '@/components/ui/HangerIcon'
 import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 
@@ -182,7 +183,7 @@ export function WardrobePage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-dark-purple/20 flex items-center justify-center flex-shrink-0">
-                    <Sparkles size={16} className="text-dark-purple" />
+                    <HangerIcon size={16} className="text-dark-purple" />
                   </div>
                   <div>
                     <p className="text-dark-purple text-sm font-medium">Ready for a styled outfit?</p>

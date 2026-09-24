@@ -14,6 +14,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { isProductPage } from './productPages.mjs'
+import { findOutfitProblems } from './outfitRules.mjs'
 
 // ─── Load .env ────────────────────────────────────────────────────────────────
 
@@ -138,7 +140,7 @@ async function runVisionAnalysis(imageData, mediaType) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'qwen/qwen3.8-27b',
       max_tokens: 512,
       messages: [{
         role: 'user',
@@ -330,7 +332,9 @@ app.post('/api/web-shop-search', async (req, res) => {
       body: JSON.stringify({
         query: trimmedQuery,
         type: 'auto',
-        numResults: 12,
+        // Over-fetch: listing pages get filtered out below, and the rest
+        // still needs to fill a row of product cards.
+        numResults: 30,
         includeDomains,
         contents: {
           text: { maxCharacters: 280 },
@@ -345,7 +349,14 @@ app.post('/api/web-shop-search', async (req, res) => {
     }
 
     const data = await response.json()
-    const results = (data.results ?? []).map((r) => {
+    const raw = data.results ?? []
+    // Stable sort, US pages first *before* capping — keeps Exa's relevance
+    // order within each group, and regional duplicates can't crowd US
+    // products out of the 12 we keep.
+    const productHits = raw
+      .filter((r) => isProductPage(r.url))
+      .sort((a, b) => Number(isLikelyNonUS(a.url)) - Number(isLikelyNonUS(b.url)))
+    const results = productHits.slice(0, 12).map((r) => {
       const domain = domainOf(r.url)
       return {
         id: r.id ?? r.url,
@@ -358,13 +369,9 @@ app.post('/api/web-shop-search', async (req, res) => {
       }
     })
 
-    // Stable sort — keeps Exa's relevance order within each group, just
-    // prefers likely-US/English pages over regional ones.
-    results.sort((a, b) => Number(isLikelyNonUS(a.url)) - Number(isLikelyNonUS(b.url)))
-
     webShopCache.set(cacheKey, { results, expiresAt: Date.now() + WEB_SHOP_CACHE_TTL_MS })
     const nonUSCount = results.filter((r) => isLikelyNonUS(r.url)).length
-    console.log(`[web-shop-search] "${trimmedQuery}" (${includeDomains.join(',')}) → ${results.length} results (${nonUSCount} non-US deprioritized)`)
+    console.log(`[web-shop-search] "${trimmedQuery}" (${includeDomains.join(',')}) → ${results.length} product pages (${raw.length - productHits.length} listing pages dropped, ${nonUSCount} non-US deprioritized)`)
     return res.json({ results })
   } catch (e) {
     console.error('[web-shop-search] Exa error:', e?.message ?? e)
@@ -387,12 +394,13 @@ function cap(str, max) {
   return str.slice(0, max) + '\n…(truncated)'
 }
 
-// Calls Groq's agentic 'compound' model. Throws with a `.status` set to the
+// Calls Groq's gpt-oss-120b model. Throws with a `.status` set to the
 // upstream HTTP status so the caller can tell a capacity issue (429/413)
 // apart from a real failure.
 async function callGroq(apiKey, systemPrompt, recentMessages) {
   const requestBody = JSON.stringify({
-    model: 'groq/compound',
+    model: 'openai/gpt-oss-120b',
+    reasoning_effort: 'low',
     max_tokens: 600,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -454,6 +462,14 @@ app.post('/api/chat', async (req, res) => {
   const profileSummary = cap(rawBody.profileSummary, MAX_SUMMARY_CHARS)
   const stylePreferencesSummary = cap(rawBody.stylePreferencesSummary, MAX_SUMMARY_CHARS)
   const shopSummary = cap(rawBody.shopSummary, MAX_SUMMARY_CHARS)
+  // Name + category only — enough for the outfit check to know that
+  // "Blue jeans" is a bottom, whatever slot the model labels it as.
+  const wardrobeItems = Array.isArray(rawBody.wardrobeItems)
+    ? rawBody.wardrobeItems
+        .slice(0, 500)
+        .filter((i) => typeof i?.name === 'string' && typeof i?.category === 'string')
+        .map((i) => ({ name: i.name.slice(0, 120), category: i.category }))
+    : []
 
   if (!Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array is required' })
@@ -471,20 +487,28 @@ app.post('/api/chat', async (req, res) => {
 
   const systemPrompt = `You are Kaia, a warm, knowledgeable personal AI stylist and personal shopper. You speak in a conversational, friendly tone — like a stylish friend who really knows fashion AND actually goes shopping with them. Every reply should feel like it's about THIS person specifically, not generic style advice — use the details below to make that true.
 ${profileSummary ? `\nAbout this person: ${profileSummary}` : ''}
-${wardrobeSummary ? `\nClothes they ACTUALLY OWN (use these for outfit building):\n${wardrobeSummary}` : '\nTheir wardrobe is still being built — encourage them to add items.'}
+${wardrobeSummary ? `\nClothes they ACTUALLY OWN, grouped by the outfit slot each one fills (use these for outfit building):\n${wardrobeSummary}` : '\nTheir wardrobe is still being built — encourage them to add items.'}
 ${wardrobeGapsSummary ? `\nWardrobe patterns and gaps (reason with this, don't recite it back verbatim — it's what makes a recommendation actually personal):\n${wardrobeGapsSummary}` : ''}
 ${stylePreferencesSummary ? `\nStyle pieces they LOVE but don't necessarily own (use to understand their taste, not as outfit components):\n${stylePreferencesSummary}` : ''}
 ${shopSummary ? `\nPieces available to buy or rent on the Discover page (Kloset's own curated picks):\n${shopSummary}\nWhen you suggest one, name the piece and its approximate price, mention it can be bought or rented, and point them to the Discover page (it has a budget filter).` : ''}
 
 CRITICAL RULES:
 - Only build OUTFITS using pieces they ACTUALLY OWN
+- An outfit is a set of DIFFERENT kinds of pieces, one per slot: exactly one Top + exactly one Bottom (or exactly one Dress instead of both), exactly one pair of Shoes, optionally one Outerwear layer, optionally up to 2 Accessories of different kinds. NEVER two pieces from the same slot — no jeans with jeans or trousers, no t-shirt with another t-shirt or shirt, no dress with a skirt. Use the slot heading each owned piece is listed under; don't relabel a piece as a different slot
+- Write every outfit as one line per slot, exactly like:
+  - Top: White linen shirt
+  - Bottom: Blue jeans
+  - Shoes: White sneakers
+  Use their piece names exactly as listed. For several outfits, put a short heading line (e.g. "Outfit 2 — Evening") between them
 - Style preferences and favourites show their taste — use them to judge fit, never treat them as owned
 - When wardrobe is small, be creative with combinations and suggest what to add next
-- If a good outfit needs a piece they don't own, or a real gap from their wardrobe patterns is worth filling, you may recommend ONE piece — either from Kloset's own catalog above, OR by naming a REAL external brand/retailer whose aesthetic, quality, and price point genuinely match this specific person (choose from: Zara, H&M, COS, Uniqlo, Mango, & Other Stories, Everlane — pick whichever actually fits them, don't default to the same one every time). Name that ONE brand exactly once and don't mention any other retailer by name in the same reply — the brand you name is what the real listing below your message gets locked to, so naming a second one creates a contradiction
+- If a good outfit needs a piece they don't own, or a real gap from their wardrobe patterns is worth filling, you may recommend ONE piece — either from Kloset's own catalog above, OR as an external piece to shop for
+- A recommended piece must fill a slot the outfit DOESN'T already have from their own clothes (e.g. they have a top and bottom but no shoes → recommend shoes; never recommend jeans for an outfit that already has jeans). Put it in the outfit as its slot line marked "(to buy)", e.g. "- Shoes: tan leather loafers (to buy)", and name the owned pieces it pairs with and why
+- NEVER name any brand, retailer, or store (no Zara, H&M, COS, Uniqlo, Mango, etc.) — Kloset suggests pieces, not brands. Describe what to look for, and the live product links that appear below your reply handle where to buy it
 - Ground every external recommendation in something specific about them: a colour they're missing, a formality gap, a favourite they own, their occupation/lifestyle — say why it complements their closet, not just that it's nice
-- When you recommend a specific external piece, end that recommendation with a tag on its own line: [[SHOP: <short search query describing the item>]] — e.g. [[SHOP: pink satin top]]. This tag is machine-readable and gets replaced with a real, live product link, so only include it for one genuine, specific recommendation per reply, never for hypotheticals or general musing
-- CRITICAL: you have NO live inventory access and have not "found," "seen," or "spotted" any specific external item — not even in hedged form ("look for a relaxed-fit blouse, think silk-blend or jersey"). Any fabric, fit, drape, or subcategory guess you add is a fiction that may contradict the real listing that appears below your message once the [[SHOP: ...]] tag resolves. State ONLY: the broad category (top/dress/etc — not a specific cut like "blouse" or "jersey"), a general colour direction, the brand, and the personal reasoning (why this direction fits their gap/palette/occasion). Nothing else about the item itself. E.g. correct: "A soft blue piece from Zara would round out your look without clashing with your neutrals." Wrong: "A relaxed-fit, slightly structured blouse in a drapey silk-blend from Zara."
-- Don't invent specific prices, stock, or exact product names for external brands
+- When you recommend a specific external piece, end that recommendation with a tag on its own line: [[SHOP: <slot> | <colour> <specific item type>]] — e.g. [[SHOP: shoes | tan leather loafers]] or [[SHOP: bottom | black wide-leg trousers]]. <slot> is one of top, bottom, dress, outerwear, shoes, accessory. The query must name a specific item type (loafers, wide-leg trousers, denim jacket, slip dress) — never just "top" or "shoes" — because it's used to find real individual product pages, which appear below your message. Only include it for one genuine recommendation per reply, never for hypotheticals or general musing
+- You have NO live inventory access and have not "found," "seen," or "spotted" any specific external item. Describe the piece only by its colour and item type (the same words as the tag) plus the personal reasoning — don't invent fabric, fit details, or features the real listing might contradict. E.g. correct: "Tan loafers would warm up your white-and-denim look." Wrong: "Buttery soft Italian-leather loafers with a cushioned sole."
+- Don't invent specific prices, stock, or exact product names for external pieces
 - Keep responses concise (2–4 sentences for simple questions, more for outfit requests)
 - When building an outfit, list pieces clearly
 - Be encouraging, warm, and fashion-forward`
@@ -502,29 +526,57 @@ CRITICAL RULES:
     `history=${recentMessages.length}msgs/${recentMessages.reduce((n, m) => n + (m.content?.length ?? 0), 0)}c`
   )
 
-  let reply = null
-  let source = null
-  let lastError = null
-
-  if (groqKey) {
-    try {
-      reply = await callGroq(groqKey, systemPrompt, recentMessages)
-      source = 'groq'
-    } catch (e) {
-      lastError = e
-      const isCapacityIssue = e.status === 429 || e.status === 413
-      console.warn(`[chat] Groq ${isCapacityIssue ? 'capacity limit' : 'error'}: ${e.message}`)
+  // Groq first, Claude as the fallback — used for the first draft and for
+  // the rewrite if the draft breaks the outfit rules.
+  const generate = async (msgs) => {
+    let lastError = null
+    if (groqKey) {
+      try {
+        return { reply: await callGroq(groqKey, systemPrompt, msgs), source: 'groq' }
+      } catch (e) {
+        lastError = e
+        const isCapacityIssue = e.status === 429 || e.status === 413
+        console.warn(`[chat] Groq ${isCapacityIssue ? 'capacity limit' : 'error'}: ${e.message}`)
+      }
     }
+    if (claudeKey) {
+      try {
+        const reply = await callClaude(claudeKey, systemPrompt, msgs)
+        console.log(`[chat] served by Claude fallback${groqKey ? ' (Groq failed first)' : ' (no Groq key set)'}`)
+        return { reply, source: 'claude-fallback' }
+      } catch (e) {
+        console.error('[chat] Claude fallback also failed:', e?.message ?? e)
+        lastError = e
+      }
+    }
+    return { reply: null, source: null, lastError }
   }
 
-  if (!reply && claudeKey) {
-    try {
-      reply = await callClaude(claudeKey, systemPrompt, recentMessages)
-      source = 'claude-fallback'
-      console.log(`[chat] served by Claude fallback${groqKey ? ' (Groq failed first)' : ' (no Groq key set)'}`)
-    } catch (e) {
-      console.error('[chat] Claude fallback also failed:', e?.message ?? e)
-      lastError = e
+  let { reply, source, lastError } = await generate(recentMessages)
+
+  // One rewrite at most — bounds latency, and a second draft almost always
+  // fixes what it's told about. If it still slips, the user gets it anyway
+  // rather than an error.
+  if (reply) {
+    const problems = findOutfitProblems(reply, wardrobeItems)
+    if (problems.length) {
+      console.warn(`[chat] outfit rules broken, asking for a rewrite:\n  - ${problems.join('\n  - ')}`)
+      const retry = await generate([
+        ...recentMessages,
+        { role: 'assistant', content: reply },
+        {
+          role: 'user',
+          content: `(Automated check — not from the user.) Your reply broke the outfit rules:\n- ${problems.join('\n- ')}\nRewrite the whole reply fixing these. Reply with only the corrected message, as if it were your first answer.`,
+        },
+      ])
+      if (retry.reply) {
+        const remaining = findOutfitProblems(retry.reply, wardrobeItems)
+        console.log(`[chat] rewrite ${remaining.length ? `still has ${remaining.length} problem(s): ${remaining.join(' | ')}` : 'passes the outfit rules'}`)
+        reply = retry.reply
+        source = retry.source
+      } else {
+        console.warn('[chat] rewrite failed — returning the first draft')
+      }
     }
   }
 
