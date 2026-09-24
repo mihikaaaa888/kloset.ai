@@ -1,16 +1,19 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Shirt, SlidersHorizontal, Compass } from 'lucide-react'
-import { HangerIcon } from '@/components/ui/HangerIcon'
-import { useNavigate } from 'react-router-dom'
+import { Plus, Search, Shirt, Compass, ArrowRight, X } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 
 import { CategoryFilter } from '@/components/wardrobe/CategoryFilter'
 import { ClothingCard } from '@/components/wardrobe/ClothingCard'
 import { AddItemModal } from '@/components/wardrobe/AddItemModal'
 import { ItemDetailModal } from '@/components/wardrobe/ItemDetailModal'
+import { MyOutfits } from '@/components/saved/MyOutfits'
+import { ShareSheet } from '@/components/friends/ShareSheet'
+import type { ShareTarget } from '@/lib/friendService'
 import { Button } from '@/components/ui/Button'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useUserStore } from '@/store/userStore'
+import { useOutfitStore } from '@/store/outfitStore'
 import { deleteImage } from '@/lib/imageStorage'
 import { SAMPLE_WARDROBE_ITEMS } from '@/lib/sampleData'
 import { useAuth } from '@/contexts/AuthContext'
@@ -21,6 +24,12 @@ export function WardrobePage() {
   const navigate = useNavigate()
   const profile = useUserStore((s) => s.profile)
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view: 'pieces' | 'outfits' = searchParams.get('view') === 'outfits' ? 'outfits' : 'pieces'
+  const setView = (next: 'pieces' | 'outfits') => {
+    setSearchParams(next === 'outfits' ? { view: 'outfits' } : {}, { replace: true })
+    console.log('[wardrobe] view changed', next)
+  }
   const { items, addItem, updateItem, removeItem, toggleFavourite, activeCategory, setActiveCategory } =
     useWardrobeStore()
 
@@ -29,6 +38,7 @@ export function WardrobePage() {
   const [detailItem, setDetailItem] = useState<ClothingItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -98,59 +108,95 @@ export function WardrobePage() {
     setShowAddModal(true)
   }
 
-  const name = profile?.name?.split(' ')[0] ?? 'your'
+  const name = profile?.name?.split(' ')[0] ?? 'Your'
+  const savedCount = useOutfitStore((s) => s.savedOutfits.length)
 
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 py-8 lg:py-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-10 lg:pt-14 pb-6">
           <div>
-            <p className="text-dark-purple bg-text-primary/80 inline-block text-xs font-medium uppercase tracking-ultra-wide mb-2 px-2.5 py-1 rounded-full">
-              Your wardrobe
-            </p>
-            <h1 className="font-display text-3xl lg:text-4xl font-medium text-text-primary">
+            <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">
               {name}&apos;s Kloset
             </h1>
-            <p className="text-text-muted text-sm mt-1">
+            <p className="text-text-muted text-sm mt-3">
               {items.length} {items.length === 1 ? 'piece' : 'pieces'}
+              {savedCount > 0 && <> · {savedCount} {savedCount === 1 ? 'outfit' : 'outfits'}</>}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setShowSearch((v) => !v)}
-              className={clsx(
-                'p-2.5 rounded-full transition-colors',
-                showSearch
-                  ? 'bg-dark-purple text-butter-yellow'
-                  : 'bg-white text-text-muted hover:bg-text-primary/5 shadow-card'
-              )}
-              aria-label="Search wardrobe"
-            >
-              <Search size={18} />
-            </button>
-            <Button size="sm" onClick={openAdd} className="gap-1.5">
-              <Plus size={16} />
-              Add Item
-            </Button>
-          </div>
+          {view === 'pieces' && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowSearch((v) => !v)}
+                aria-pressed={showSearch}
+                className={clsx(
+                  'w-11 h-11 rounded-full flex items-center justify-center ring-1 ring-inset transition-colors',
+                  showSearch
+                    ? 'bg-text-primary text-warm-cream ring-text-primary'
+                    : 'text-text-primary ring-text-primary/20 hover:ring-text-primary/50'
+                )}
+                aria-label="Search wardrobe"
+              >
+                <Search size={17} strokeWidth={1.25} />
+              </button>
+              <button
+                onClick={openAdd}
+                className="h-11 px-5 flex items-center gap-2 bg-text-primary text-warm-cream text-xs font-medium uppercase tracking-widest hover:bg-text-primary/90 transition-colors"
+              >
+                <Plus size={14} strokeWidth={1.5} />
+                Add piece
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* View switch */}
+        <div role="tablist" aria-label="My Kloset sections" className="flex gap-8 border-b border-text-primary/10 mb-8">
+          {([['pieces', 'Pieces'], ['outfits', 'My Outfits']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              role="tab"
+              aria-selected={view === value}
+              onClick={() => setView(value)}
+              className={clsx(
+                'relative -mb-px pb-3 text-xs uppercase tracking-widest transition-colors',
+                view === value
+                  ? 'text-text-primary font-semibold after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-text-primary'
+                  : 'text-text-muted hover:text-text-primary'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {view === 'outfits' ? <MyOutfits /> : <>
 
         {/* Search bar */}
         {showSearch && (
-          <div className="mb-6 animate-fade-up">
+          <div className="mb-8 animate-fade-up">
             <div className="relative">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <Search size={16} strokeWidth={1.25} className="absolute left-0 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
                 autoFocus
                 type="search"
                 placeholder="Search by name, colour, material…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-text-primary/15 bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-text-primary/30 focus:border-text-primary/40 transition-all"
+                className="w-full pl-7 pr-8 py-3 border-b border-text-primary/25 focus:border-text-primary bg-transparent text-base text-text-primary placeholder:text-text-muted focus:outline-none transition-colors"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary"
+                >
+                  <X size={16} strokeWidth={1.25} />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -177,24 +223,22 @@ export function WardrobePage() {
         ) : (
           <>
             {items.length >= 3 && (
-              <div
+              <button
                 onClick={() => navigate('/stylist')}
-                className="mb-6 p-4 rounded-2xl bg-butter-yellow flex items-center justify-between gap-4 cursor-pointer hover:bg-soft-butter transition-colors group"
+                className="group w-full mb-10 py-5 border-y border-text-primary/10 flex items-center justify-between gap-4 text-left"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-dark-purple/20 flex items-center justify-center flex-shrink-0">
-                    <HangerIcon size={16} className="text-dark-purple" />
-                  </div>
-                  <div>
-                    <p className="text-dark-purple text-sm font-medium">Ready for a styled outfit?</p>
-                    <p className="text-dark-purple/60 text-xs">Your AI stylist can build an outfit from your Kloset</p>
-                  </div>
-                </div>
-                <SlidersHorizontal size={16} className="text-dark-purple/50 group-hover:text-dark-purple/80 transition-colors flex-shrink-0" />
-              </div>
+                <span>
+                  <span className="block font-display text-2xl text-text-primary">Not sure what to wear?</span>
+                  <span className="block text-sm text-text-muted mt-0.5">Your AI stylist can build a look from these pieces.</span>
+                </span>
+                <span className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-widest text-butter-yellow flex-shrink-0">
+                  Style me
+                  <ArrowRight size={14} strokeWidth={1.25} className="transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
+              </button>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-5 gap-y-10">
               {filteredItems.map((item) => (
                 <ClothingCard
                   key={item.id}
@@ -208,6 +252,7 @@ export function WardrobePage() {
             </div>
           </>
         )}
+        </>}
       </div>
 
       <AddItemModal
@@ -229,7 +274,10 @@ export function WardrobePage() {
           setDetailItem((prev) => prev ? { ...prev, isFavourite: !prev.isFavourite } : null)
         }}
         onIncrementWorn={() => detailItem && handleIncrementWorn(detailItem)}
+        onSend={() => detailItem && setShareTarget({ kind: 'item', item: detailItem })}
       />
+
+      <ShareSheet target={shareTarget} onClose={() => setShareTarget(null)} />
     </div>
   )
 }
@@ -239,7 +287,7 @@ function EmptyState({ onAdd, onLoadSamples }: { onAdd: () => void; onLoadSamples
   return (
     <div className="flex flex-col items-center justify-center text-center py-20 px-4">
       <div className="w-20 h-20 rounded-3xl bg-text-primary/8 flex items-center justify-center mb-6">
-        <Shirt size={32} className="text-text-primary/40" />
+        <Shirt size={32} strokeWidth={1} className="text-text-primary/50" />
       </div>
       <h2 className="font-display text-2xl font-medium text-text-primary mb-2">Your Kloset is empty</h2>
       <p className="text-text-muted text-base leading-relaxed max-w-sm mb-8">
@@ -270,7 +318,7 @@ function NoResultsState({ query, category, onClear }: { query: string; category:
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 px-4">
       <div className="w-16 h-16 rounded-3xl bg-text-primary/8 flex items-center justify-center mb-4">
-        <Search size={24} className="text-text-primary/40" />
+        <Search size={24} strokeWidth={1} className="text-text-primary/50" />
       </div>
       <h3 className="font-display text-xl font-medium text-text-primary mb-2">No items found</h3>
       <p className="text-text-muted text-sm mb-6">
@@ -290,16 +338,15 @@ function NoResultsState({ query, category, onClear }: { query: string; category:
 
 function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-3xl border-2 border-dashed border-text-primary/15 hover:border-text-primary/40 hover:bg-text-primary/5 transition-all duration-200 flex flex-col items-center justify-center gap-2 aspect-[3/4] group"
-    >
-      <div className="w-10 h-10 rounded-full bg-text-primary/8 group-hover:bg-text-primary/15 flex items-center justify-center transition-colors">
-        <Plus size={18} className="text-text-primary/50" />
+    <button onClick={onClick} className="group text-left">
+      <div className="aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
+        <span className="w-12 h-12 rounded-full ring-1 ring-text-primary/20 group-hover:bg-text-primary group-hover:text-warm-cream group-hover:ring-text-primary flex items-center justify-center text-text-primary transition-colors duration-300">
+          <Plus size={18} strokeWidth={1.25} />
+        </span>
+        <span className="text-2xs uppercase tracking-widest text-text-muted group-hover:text-text-primary transition-colors">
+          Add a piece
+        </span>
       </div>
-      <span className="text-xs font-medium text-text-muted group-hover:text-text-primary transition-colors">
-        Add item
-      </span>
     </button>
   )
 }

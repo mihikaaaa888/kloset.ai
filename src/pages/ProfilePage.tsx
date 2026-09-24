@@ -8,6 +8,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useOutfitStore } from '@/store/outfitStore'
 import { styleOptions } from '@/pages/onboarding/onboardingData'
+import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ export function ProfilePage() {
   const { savedOutfits, savedOutfits: allOutfits } = useOutfitStore()
   const removeWardrobeItem = useWardrobeStore((s) => s.removeItem)
   const unsaveOutfitAction = useOutfitStore((s) => s.unsaveOutfit)
+  const { user, signOut } = useAuth()
 
   if (!profile) {
     return (
@@ -60,6 +62,16 @@ export function ProfilePage() {
       allOutfits.forEach((o) => unsaveOutfitAction(o.id))
       clearProfile()
       navigate('/')
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      console.log('[profile] signed out')
+      navigate('/')
+    } catch (err) {
+      console.error('[profile] sign out failed', err)
     }
   }
 
@@ -155,6 +167,11 @@ export function ProfilePage() {
             <ActionRow label="Edit style profile" description="Update your preferences, occasions, and colours" onClick={handleEditProfile} />
             <ActionRow label="Restart onboarding" description="Redo the setup — your wardrobe is kept" onClick={handleResetOnboarding} />
             <ActionRow label="Clear all data" description="Delete everything and start fresh" onClick={handleClearAll} danger />
+            <ActionRow
+              label="Sign out"
+              description={user?.email ? `Signed in as ${user.email}` : 'Sign out of Kloset on this device'}
+              onClick={handleSignOut}
+            />
           </div>
         </ProfileSection>
 

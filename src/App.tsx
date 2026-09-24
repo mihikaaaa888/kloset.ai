@@ -7,7 +7,7 @@ import { LandingPage } from '@/pages/LandingPage'
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage'
 import { WardrobePage } from '@/pages/WardrobePage'
 import { StylistPage } from '@/pages/StylistPage'
-import { SavedOutfitsPage } from '@/pages/SavedOutfitsPage'
+import { FriendsPage } from '@/pages/FriendsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { DiscoverPage } from '@/pages/DiscoverPage'
 import { HomePage } from '@/pages/HomePage'
@@ -72,7 +72,8 @@ function AppRoutes() {
         <Route path="/wardrobe" element={<RequireAuth><WardrobePage /></RequireAuth>} />
         <Route path="/stylist" element={<RequireAuth><StylistPage /></RequireAuth>} />
         <Route path="/discover" element={<RequireAuth><DiscoverPage /></RequireAuth>} />
-        <Route path="/saved" element={<RequireAuth><SavedOutfitsPage /></RequireAuth>} />
+        <Route path="/saved" element={<Navigate to="/wardrobe?view=outfits" replace />} />
+        <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
       </Routes>
     </>

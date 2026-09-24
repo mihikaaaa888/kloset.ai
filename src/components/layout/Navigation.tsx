@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { Home, Shirt, BookMarked, User, Menu, X, Compass } from 'lucide-react'
+import { Home, Shirt, User, Menu, X, Compass, Users } from 'lucide-react'
 import { HangerIcon } from '@/components/ui/HangerIcon'
 import { useUserStore } from '@/store/userStore'
 import { useAuth } from '@/contexts/AuthContext'
+import { countFriendActivity, FRIENDS_CHANGED_EVENT } from '@/lib/friendService'
 
 interface NavItem {
   label: string
@@ -22,16 +23,15 @@ export const authNavItems: NavItem[] = [
   { label: 'My Kloset', to: '/wardrobe', icon: <Shirt size={18} />, requiresAuth: true },
   { label: 'Shop', to: '/discover', icon: <Compass size={18} />, requiresAuth: true },
   { label: 'AI Stylist', to: '/stylist', icon: <HangerIcon size={18} />, requiresAuth: true },
-  { label: 'Saved', to: '/saved', icon: <BookMarked size={18} />, requiresAuth: true },
+  { label: 'Friends', to: '/friends', icon: <Users size={18} />, requiresAuth: true },
   { label: 'Profile', to: '/profile', icon: <User size={18} />, requiresAuth: true },
 ]
 
 export function Navigation() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
   const profile = useUserStore((s) => s.profile)
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
 
   const isOnboarding = location.pathname.startsWith('/onboarding')
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname)
@@ -39,10 +39,29 @@ export function Navigation() {
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/')
-  }
+  // Pending requests + unseen shares, refreshed on navigation, every minute, and when the Friends page changes something.
+  const [friendBadge, setFriendBadge] = useState(0)
+  useEffect(() => {
+    if (!user) { setFriendBadge(0); return }
+    const refresh = () => countFriendActivity().then(setFriendBadge).catch(() => setFriendBadge(0))
+    refresh()
+    const timer = window.setInterval(refresh, 60_000)
+    window.addEventListener(FRIENDS_CHANGED_EVENT, refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener(FRIENDS_CHANGED_EVENT, refresh)
+    }
+  }, [user, location.pathname])
+
+  const badgeFor = (to: string) =>
+    to === '/friends' && friendBadge > 0 ? (
+      <span
+        aria-label={`${friendBadge} new`}
+        className="min-w-[16px] h-4 px-1 rounded-full bg-butter-yellow text-dark-purple text-[9px] leading-none font-semibold flex items-center justify-center tabular-nums"
+      >
+        {friendBadge}
+      </span>
+    ) : null
 
   // The landing page has no top nav — its links live in the footer instead.
   if (isOnboarding || isAuthPage || isLanding) return null
@@ -78,6 +97,7 @@ export function Navigation() {
                     className={({ isActive }) => clsx('text-tab', isActive && 'text-tab-active')}
                   >
                     {item.label}
+                    {badgeFor(item.to)}
                   </NavLink>
                 )
               })}
@@ -89,15 +109,6 @@ export function Navigation() {
                 >
                   Get Started
                 </NavLink>
-              )}
-
-              {user && (
-                <button
-                  onClick={handleSignOut}
-                  className="text-tab ml-4"
-                >
-                  Sign out
-                </button>
               )}
             </div>
 
@@ -128,11 +139,12 @@ export function Navigation() {
                     to={item.to}
                     end={item.to === '/' || item.to === '/home'}
                     className={({ isActive }) => clsx(
-                      'block py-2.5 text-base uppercase tracking-wider transition-colors',
+                      'flex items-center gap-2 py-2.5 text-base uppercase tracking-wider transition-colors',
                       isActive ? 'text-butter-yellow font-semibold' : 'text-text-primary hover:text-butter-yellow'
                     )}
                   >
                     {item.label}
+                    {badgeFor(item.to)}
                   </NavLink>
                 )
               })}
@@ -144,15 +156,6 @@ export function Navigation() {
                 >
                   Get Started
                 </NavLink>
-              )}
-
-              {user && (
-                <button
-                  onClick={handleSignOut}
-                  className="mt-4 pt-4 border-t border-text-primary/10 text-left py-2.5 text-sm uppercase tracking-wider text-text-muted hover:text-text-primary"
-                >
-                  Sign out
-                </button>
               )}
             </div>
           </div>
@@ -169,11 +172,14 @@ export function Navigation() {
                 to={item.to}
                 end={item.to === '/home'}
                 className={({ isActive }) => clsx(
-                  'flex flex-col items-center gap-1 px-2 py-2 text-2xs uppercase tracking-wider transition-colors duration-150',
+                  'flex flex-col items-center gap-1 px-1 py-2 text-2xs uppercase tracking-wider transition-colors duration-150',
                   isActive ? 'text-butter-yellow font-semibold' : 'text-text-muted hover:text-text-primary'
                 )}
               >
-                {item.icon}
+                <span className="relative">
+                  {item.icon}
+                  {badgeFor(item.to) && <span className="absolute -top-1.5 -right-2.5">{badgeFor(item.to)}</span>}
+                </span>
                 <span>{item.label}</span>
               </NavLink>
             ))}

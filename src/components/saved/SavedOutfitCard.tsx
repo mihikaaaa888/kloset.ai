@@ -1,4 +1,5 @@
-import { Trash2, Heart, Shirt } from 'lucide-react'
+import { Trash2, Send } from 'lucide-react'
+import { CategoryGlyph } from '@/components/wardrobe/categoryVisuals'
 import { clsx } from 'clsx'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
 import { useItemImage } from '@/hooks/useItemImage'
@@ -15,6 +16,7 @@ interface SavedOutfitCardProps {
   resolvedItems: ResolvedOutfitItem[]
   onClick: () => void
   onUnsave: (e: React.MouseEvent) => void
+  onSend: (e: React.MouseEvent) => void
 }
 
 const OCCASION_LABEL: Record<string, string> = {
@@ -22,7 +24,7 @@ const OCCASION_LABEL: Record<string, string> = {
   weekend: 'Weekend', travel: 'Travel', 'special-event': 'Special Event', gym: 'Gym',
 }
 
-export function SavedOutfitCard({ outfit, resolvedItems, onClick, onUnsave }: SavedOutfitCardProps) {
+export function SavedOutfitCard({ outfit, resolvedItems, onClick, onUnsave, onSend }: SavedOutfitCardProps) {
   const mosaicSlots = [...resolvedItems].slice(0, 4)
   while (mosaicSlots.length < 4) mosaicSlots.push({ itemId: '', role: '', item: null })
 
@@ -31,51 +33,53 @@ export function SavedOutfitCard({ outfit, resolvedItems, onClick, onUnsave }: Sa
     : null
 
   return (
-    <div
-      onClick={onClick}
-      className="group relative rounded-3xl overflow-hidden bg-white shadow-card cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-medium"
-    >
-      {/* Mosaic */}
-      <div className="grid grid-cols-2 aspect-[4/3]">
-        {mosaicSlots.map((slot, i) => (
-          <MosaicCell
-            key={slot.itemId || `empty-${i}`}
-            item={slot.item}
-            role={slot.role}
-          />
-        ))}
-      </div>
-
-      {/* Unsave button */}
+    <article className="group relative">
       <button
-        onClick={onUnsave}
-        aria-label="Remove outfit"
-        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-rose-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-rose-600 transition-all duration-200 shadow-soft"
+        onClick={onClick}
+        aria-label={`View ${outfit.name}`}
+        className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow focus-visible:ring-offset-4 focus-visible:ring-offset-warm-cream"
       >
-        <Trash2 size={13} />
+        {/* Mosaic */}
+        <div className="grid grid-cols-2 gap-px aspect-[4/3] bg-text-primary/5 overflow-hidden">
+          {mosaicSlots.map((slot, i) => (
+            <MosaicCell key={slot.itemId || `empty-${i}`} item={slot.item} role={slot.role} />
+          ))}
+        </div>
+
+        {/* Info */}
+        <div className="pt-4 pr-10">
+          <p className="text-2xs uppercase tracking-widest text-text-muted">
+            {OCCASION_LABEL[outfit.occasion] ?? outfit.occasion}
+            {' · '}
+            {resolvedItems.length} {resolvedItems.length === 1 ? 'piece' : 'pieces'}
+            {savedDate && <> · {savedDate}</>}
+          </p>
+          <h3 className="font-display text-xl leading-snug text-text-primary mt-1 line-clamp-2">{outfit.name}</h3>
+          {outfit.source === 'manual' ? (
+            <p className="text-xs text-text-muted mt-1">Styled by you</p>
+          ) : outfit.mood ? (
+            <p className="text-xs text-text-muted mt-1 capitalize">{outfit.mood}</p>
+          ) : null}
+        </div>
       </button>
 
-      {/* Info */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-serif text-base font-medium text-charcoal-900 leading-snug line-clamp-2">
-            {outfit.name}
-          </h3>
-          <Heart size={12} className="text-rose-400 fill-rose-400 flex-shrink-0 mt-0.5" />
-        </div>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <span className="text-2xs font-medium uppercase tracking-widest px-2 py-0.5 rounded-full bg-charcoal-900 text-cream-50">
-            {OCCASION_LABEL[outfit.occasion] ?? outfit.occasion}
-          </span>
-          {outfit.mood && (
-            <span className="text-2xs text-charcoal-400 capitalize">{outfit.mood}</span>
-          )}
-          {savedDate && (
-            <span className="text-2xs text-charcoal-300 ml-auto">{savedDate}</span>
-          )}
-        </div>
+      <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300">
+        <button
+          onClick={onSend}
+          aria-label="Send to a friend"
+          className="w-9 h-9 rounded-full bg-warm-cream/90 backdrop-blur-sm flex items-center justify-center text-text-primary hover:bg-warm-cream transition-colors"
+        >
+          <Send size={15} strokeWidth={1.25} />
+        </button>
+        <button
+          onClick={onUnsave}
+          aria-label="Remove outfit"
+          className="w-9 h-9 rounded-full bg-warm-cream/90 backdrop-blur-sm flex items-center justify-center text-text-primary hover:text-red-700 transition-colors"
+        >
+          <Trash2 size={15} strokeWidth={1.25} />
+        </button>
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -83,7 +87,7 @@ function MosaicCell({ item, role }: { item: ClothingItem | null; role: string })
   const imageUrl = useItemImage(item)
 
   if (!item) {
-    return <div className="bg-cream-200" />
+    return <div className="bg-[#F3F0E8]" />
   }
 
   const primaryColour = item.colour[0]
@@ -98,17 +102,17 @@ function MosaicCell({ item, role }: { item: ClothingItem | null; role: string })
       {imageUrl ? (
         <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
       ) : (
-        <Shirt
-          size={20}
-          className={clsx('select-none', isLight ? 'text-text-primary opacity-30' : 'text-white opacity-40')}
+        <CategoryGlyph
+          category={item.category}
+          size={40}
+          className={isLight ? 'text-text-primary/35' : 'text-white/45'}
         />
       )}
       {/* Role tag */}
       <span
         className={clsx(
-          'absolute bottom-1.5 left-1.5 text-2xs font-medium uppercase tracking-widest px-1.5 py-0.5 rounded-full',
-          'bg-black/20 backdrop-blur-sm',
-          isLight ? 'text-charcoal-700' : 'text-white/90'
+          'absolute bottom-2 left-2 text-2xs font-medium uppercase tracking-widest px-1.5 py-0.5',
+          'bg-warm-cream/90 text-text-primary'
         )}
       >
         {role}

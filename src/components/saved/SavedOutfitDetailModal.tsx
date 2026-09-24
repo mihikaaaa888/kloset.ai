@@ -1,4 +1,4 @@
-import { Trash2, ChevronRight, Shirt } from 'lucide-react'
+import { Trash2, ChevronRight, Shirt, Send } from 'lucide-react'
 import { HangerIcon } from '@/components/ui/HangerIcon'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
@@ -21,6 +21,7 @@ interface SavedOutfitDetailModalProps {
   onClose: () => void
   onUnsave: () => void
   onStyleSimilar: () => void
+  onSend: () => void
 }
 
 const OCCASION_LABEL: Record<string, string> = {
@@ -38,6 +39,7 @@ export function SavedOutfitDetailModal({
   onClose,
   onUnsave,
   onStyleSimilar,
+  onSend,
 }: SavedOutfitDetailModalProps) {
   if (!outfit) return null
 
@@ -156,6 +158,16 @@ export function SavedOutfitDetailModal({
             >
               <HangerIcon size={14} />
               Style Similar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSend}
+              fullWidth
+              className="gap-2"
+            >
+              <Send size={14} strokeWidth={1.5} />
+              Send
             </Button>
             <Button
               variant="ghost"

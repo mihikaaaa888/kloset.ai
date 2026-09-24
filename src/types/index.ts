@@ -170,3 +170,52 @@ export interface OutfitGenerationResult {
   outfit: Outfit
   alternativeItems?: ClothingItem[]
 }
+
+// ─── Friends & sharing ────────────────────────────────────────────────────────
+
+export type FriendStatus = 'pending' | 'accepted' | 'declined'
+
+/** A friend request or friendship, seen from the signed-in user's side. */
+export interface Connection {
+  id: string
+  status: FriendStatus
+  direction: 'incoming' | 'outgoing'
+  otherId: string
+  otherName: string
+  otherEmail: string
+  createdAt: string
+  respondedAt: string | null
+}
+
+/** Snapshot of a piece as it looked when it was sent. */
+export interface SharedPiece {
+  name: string
+  category: ClothingCategory
+  colour: string[]
+  material?: string
+  pattern?: Pattern
+  brand?: string
+  notes?: string
+  role?: OutfitItem['role']
+  // Supabase Storage path in the shared-images bucket, or a remote URL
+  imagePath?: string
+  imageUrl?: string
+}
+
+export interface SharePayload {
+  title: string
+  occasion?: Occasion
+  pieces: SharedPiece[]
+}
+
+export interface Share {
+  id: string
+  kind: 'item' | 'outfit'
+  payload: SharePayload
+  message: string | null
+  createdAt: string
+  seenAt: string | null
+  direction: 'sent' | 'received'
+  otherId: string
+  otherName: string
+}
