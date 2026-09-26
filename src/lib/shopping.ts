@@ -44,8 +44,9 @@ export function fitsRentBudget(item: CatalogItem, budget: BudgetId): boolean {
 }
 
 // ─── Personal ranking ─────────────────────────────────────────────────────────
-// Pieces that match the user's style aesthetic, and categories their Kloset is
-// missing or thin in, float to the top — that's what makes it "personal".
+// Pieces that match the user's onboarding answers (style aesthetic, colours,
+// usual occasions), and categories their Kloset is missing or thin in, float
+// to the top — that's what makes it "personal".
 
 function gapCategories(wardrobe: ClothingItem[]): Set<ClothingCategory> {
   const counts = new Map<ClothingCategory, number>()
@@ -54,17 +55,25 @@ function gapCategories(wardrobe: ClothingItem[]): Set<ClothingCategory> {
   return new Set(all.filter((c) => (counts.get(c) ?? 0) <= 1))
 }
 
-function personalScore(item: CatalogItem, styles: StylePreference[], gaps: Set<ClothingCategory>): number {
+function personalScore(item: CatalogItem, profile: UserProfile | null, gaps: Set<ClothingCategory>): number {
+  const styles = profile?.stylePreferences ?? []
+  const lower = (list: string[] | undefined) => (list ?? []).map((c) => c.toLowerCase())
+  const favourite = lower(profile?.favouriteColours)
+  const avoid = lower(profile?.avoidColours)
+  const colours = lower(item.colours)
+
   let score = 0
   score += item.styleAesthetics.filter((s) => styles.includes(s)).length * 2
+  if (colours.some((c) => favourite.includes(c))) score += 1
+  if (colours.some((c) => avoid.includes(c))) score -= 3
+  score += Math.min(2, item.occasions.filter((o) => profile?.typicalOccasions?.includes(o)).length)
   if (gaps.has(item.category)) score += 1
   return score
 }
 
 export function rankForUser(items: CatalogItem[], profile: UserProfile | null, wardrobe: ClothingItem[]): CatalogItem[] {
-  const styles = profile?.stylePreferences ?? []
   const gaps = gapCategories(wardrobe)
-  return [...items].sort((a, b) => personalScore(b, styles, gaps) - personalScore(a, styles, gaps))
+  return [...items].sort((a, b) => personalScore(b, profile, gaps) - personalScore(a, profile, gaps))
 }
 
 // ─── Rent ─────────────────────────────────────────────────────────────────────
@@ -75,81 +84,6 @@ export function isRentable(item: CatalogItem): boolean {
   const occasionPiece = item.occasions.some((o) => ['formal', 'special-event', 'date-night'].includes(o))
   const investmentPiece = item.priceRange === 'premium' || item.priceRange === 'luxury'
   return occasionPiece || investmentPiece || item.category === 'dresses'
-}
-
-// ─── Brand-new outfits ────────────────────────────────────────────────────────
-
-export interface ShoppingLook {
-  id: string
-  title: string
-  style: StylePreference
-  pieces: CatalogItem[]
-  total: number
-}
-
-const LOOK_TITLES: Record<StylePreference, string> = {
-  classic: 'The Classic Edit',
-  minimalist: 'Quiet Minimalism',
-  business: 'Boardroom Ready',
-  streetwear: 'Off-Duty Street',
-  bohemian: 'Free-Spirited',
-  athleisure: 'Easy Movement',
-  romantic: 'Soft Romance',
-  eclectic: 'Mix & Match',
-}
-
-/**
- * Builds complete, shoppable outfits (top + bottom or a dress, plus shoes and
- * a finishing layer/accessory) from the catalog — one look per style, starting
- * with the user's own style aesthetic. Every piece respects the budget.
- */
-export function buildShoppingLooks(profile: UserProfile | null, budget: BudgetId, maxLooks = 6): ShoppingLook[] {
-  const pool = CATALOG_ITEMS.filter((i) => fitsBuyBudget(i, budget))
-  const userStyles = profile?.stylePreferences ?? []
-  const allStyles = Object.keys(LOOK_TITLES) as StylePreference[]
-  const styleOrder = [...userStyles, ...allStyles.filter((s) => !userStyles.includes(s))]
-
-  const used = new Set<string>()
-  const pick = (category: ClothingCategory, style: StylePreference): CatalogItem | undefined => {
-    const inCategory = pool.filter((i) => i.category === category && !used.has(i.id))
-    const choice = inCategory.find((i) => i.styleAesthetics.includes(style)) ?? inCategory[0]
-    if (choice) used.add(choice.id)
-    return choice
-  }
-
-  const looks: ShoppingLook[] = []
-  for (const [index, style] of styleOrder.entries()) {
-    if (looks.length >= maxLooks) break
-
-    // Alternate dress-based and separates-based looks for variety.
-    const pieces: (CatalogItem | undefined)[] = []
-    const dress = index % 3 === 2 ? pick('dresses', style) : undefined
-    if (dress) {
-      pieces.push(dress)
-    } else {
-      pieces.push(pick('tops', style), pick('bottoms', style))
-    }
-    pieces.push(pick('shoes', style))
-    pieces.push(index % 2 === 0 ? pick('outerwear', style) : pick('accessories', style))
-
-    const complete = pieces.filter(Boolean) as CatalogItem[]
-    const hasBase = complete.some((p) => ['tops', 'dresses'].includes(p.category))
-    if (!hasBase || complete.length < 3) {
-      complete.forEach((p) => used.delete(p.id))
-      continue
-    }
-
-    looks.push({
-      id: `look-${style}`,
-      title: LOOK_TITLES[style],
-      style,
-      pieces: complete,
-      total: complete.reduce((sum, p) => sum + p.estimatedPrice, 0),
-    })
-  }
-
-  console.log('[shopping] built looks', { budget, count: looks.length })
-  return looks
 }
 
 // ─── Complete a piece ─────────────────────────────────────────────────────────

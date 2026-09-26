@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X } from 'lucide-react'
+import { Check, ShoppingBag, X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useItemImage } from '@/hooks/useItemImage'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
 import { CATEGORY_LABEL, CategoryGlyph } from '@/components/wardrobe/categoryVisuals'
-import type { ClothingItem, Occasion, Outfit, OutfitItem } from '@/types'
-
-const ROLE_FOR_CATEGORY: Record<string, OutfitItem['role']> = {
-  tops: 'top',
-  bottoms: 'bottom',
-  dresses: 'dress',
-  outerwear: 'outerwear',
-  shoes: 'shoes',
-  accessories: 'accessory',
-}
+import { CATALOG_ITEMS } from '@/lib/catalogData'
+import { formatINR, rankForUser } from '@/lib/shopping'
+import { ROLE_FOR_CATEGORY, catalogSnapshot, catalogToItem } from '@/lib/outfitPieces'
+import { useUserStore } from '@/store/userStore'
+import type { CatalogItem, ClothingItem, Occasion, Outfit, OutfitItem } from '@/types'
 
 const OCCASIONS: { value: Occasion; label: string }[] = [
   { value: 'casual', label: 'Casual' },
@@ -37,20 +32,23 @@ interface CreateOutfitModalProps {
 }
 
 /**
- * Build an outfit by hand from pieces already in the Kloset. Follows the
- * same slot rules as the stylist: one of each slot, a dress replaces a
- * top + bottom, and up to two accessories.
+ * Build an outfit by hand from pieces in the Kloset, topped up with pieces
+ * from the shop. Follows the same slot rules as the stylist: one of each
+ * slot, a dress replaces a top + bottom, and up to two accessories.
  */
 export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfitModalProps) {
+  const profile = useUserStore((s) => s.profile)
   const [name, setName] = useState('')
   const [occasion, setOccasion] = useState<Occasion>('casual')
   const [selected, setSelected] = useState<string[]>([])
+  const [source, setSource] = useState<'kloset' | 'shop'>('kloset')
 
   useEffect(() => {
     if (!open) return
     setName('')
     setOccasion('casual')
     setSelected([])
+    setSource('kloset')
   }, [open])
 
   useEffect(() => {
@@ -64,13 +62,20 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
     }
   }, [open, onClose])
 
-  const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  // Shop pieces, most on-style first. Keyed by catalog id, which never collides with wardrobe UUIDs.
+  const shopPieces = useMemo(() => rankForUser(CATALOG_ITEMS, profile, items), [profile, items])
+  const catalogById = useMemo(() => new Map(CATALOG_ITEMS.map((c) => [c.id, c])), [])
+  const shopItems = useMemo(() => shopPieces.map((c) => catalogToItem(c)), [shopPieces])
+  const byId = useMemo(() => new Map([...items, ...shopItems].map((i) => [i.id, i])), [items, shopItems])
 
   const toggle = (item: ClothingItem) => {
     setSelected((prev) => {
       if (prev.includes(item.id)) return prev.filter((id) => id !== item.id)
       const role = ROLE_FOR_CATEGORY[item.category]
-      const roleOf = (id: string) => ROLE_FOR_CATEGORY[byId.get(id)?.category ?? '']
+      const roleOf = (id: string) => {
+        const category = byId.get(id)?.category
+        return category ? ROLE_FOR_CATEGORY[category] : undefined
+      }
       let next = prev
       if (role === 'accessory') {
         const accessories = next.filter((id) => roleOf(id) === 'accessory')
@@ -79,17 +84,21 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
         // One piece per slot; a dress and separates are mutually exclusive.
         const clashes: OutfitItem['role'][] =
           role === 'dress' ? ['dress', 'top', 'bottom'] : role === 'top' || role === 'bottom' ? [role, 'dress'] : [role]
-        next = next.filter((id) => !clashes.includes(roleOf(id)))
+        next = next.filter((id) => !clashes.includes(roleOf(id)!))
       }
       return [...next, item.id]
     })
   }
 
   const handleSave = () => {
-    const outfitItems: OutfitItem[] = selected.map((id) => ({
-      itemId: id,
-      role: ROLE_FOR_CATEGORY[byId.get(id)!.category],
-    }))
+    const outfitItems: OutfitItem[] = selected.map((id) => {
+      const catalogItem = catalogById.get(id)
+      return {
+        itemId: id,
+        role: ROLE_FOR_CATEGORY[byId.get(id)!.category],
+        ...(catalogItem && { snapshot: catalogSnapshot(catalogItem) }),
+      }
+    })
     const now = new Date().toISOString()
     const outfit: Outfit = {
       id: crypto.randomUUID(),
@@ -102,7 +111,11 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
       isSaved: true,
       source: 'manual',
     }
-    console.log('[my-outfits] saving manual outfit', { id: outfit.id, pieces: outfitItems.length })
+    console.log('[my-outfits] saving manual outfit', {
+      id: outfit.id,
+      pieces: outfitItems.length,
+      fromShop: outfitItems.filter((i) => i.snapshot).length,
+    })
     onSave(outfit)
   }
 
@@ -177,6 +190,7 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
                       <li key={id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                         <span className="truncate text-text-primary">{item.name}</span>
                         <span className="text-2xs uppercase tracking-widest text-text-muted flex-shrink-0">
+                          {catalogById.has(id) && <span className="text-butter-yellow">Shop · </span>}
                           {ROLE_FOR_CATEGORY[item.category]}
                         </span>
                       </li>
@@ -188,15 +202,48 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
           </aside>
 
           {/* Picker */}
-          {items.length === 0 ? (
-            <p className="text-sm text-text-muted">Add pieces to your Kloset first, then come back to build an outfit.</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
-              {items.map((item) => (
-                <PickTile key={item.id} item={item} selected={selected.includes(item.id)} onClick={() => toggle(item)} />
-              ))}
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <p className="text-2xs uppercase tracking-widest text-text-muted">
+                {source === 'kloset' ? 'From your Kloset' : 'From the shop, picked for your style'}
+              </p>
+              <div role="tablist" aria-label="Pick pieces from" className="flex ring-1 ring-inset ring-text-primary/20">
+                {([['kloset', 'My Kloset'], ['shop', 'Shop']] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    role="tab"
+                    aria-selected={source === value}
+                    onClick={() => setSource(value)}
+                    className={clsx(
+                      'h-9 px-3.5 flex items-center gap-1.5 text-2xs uppercase tracking-widest transition-colors',
+                      source === value ? 'bg-text-primary text-warm-cream' : 'text-text-primary hover:bg-text-primary/5'
+                    )}
+                  >
+                    {value === 'shop' && <ShoppingBag size={12} strokeWidth={1.5} />}
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+
+            {source === 'kloset' && items.length === 0 ? (
+              <p className="text-sm text-text-muted">
+                Your Kloset is empty. Add pieces, or tap Shop to build this outfit from new finds.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
+                {(source === 'kloset' ? items : shopItems).map((item) => (
+                  <PickTile
+                    key={item.id}
+                    item={item}
+                    shop={catalogById.get(item.id)}
+                    selected={selected.includes(item.id)}
+                    onClick={() => toggle(item)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -217,7 +264,17 @@ export function CreateOutfitModal({ open, items, onClose, onSave }: CreateOutfit
   )
 }
 
-function PickTile({ item, selected, onClick }: { item: ClothingItem; selected: boolean; onClick: () => void }) {
+function PickTile({
+  item,
+  shop,
+  selected,
+  onClick,
+}: {
+  item: ClothingItem
+  shop?: CatalogItem
+  selected: boolean
+  onClick: () => void
+}) {
   const imageUrl = useItemImage(item)
   const bgHex = item.colour[0] ? colourNameToHex(item.colour[0]) : '#EDE9E2'
   return (
@@ -246,6 +303,7 @@ function PickTile({ item, selected, onClick }: { item: ClothingItem; selected: b
       </div>
       <p className="text-2xs uppercase tracking-widest text-text-muted mt-2.5">{CATEGORY_LABEL[item.category]}</p>
       <p className="font-display text-base text-text-primary truncate">{item.name}</p>
+      {shop && <p className="text-xs text-text-muted tabular-nums">{formatINR(shop.estimatedPrice)}</p>}
     </button>
   )
 }

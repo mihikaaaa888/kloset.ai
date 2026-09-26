@@ -9,6 +9,7 @@ import { ShareSheet } from '@/components/friends/ShareSheet'
 import type { ShareTarget } from '@/lib/friendService'
 import { useOutfitStore } from '@/store/outfitStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
+import { resolveOutfitItems } from '@/lib/outfitPieces'
 import type { Outfit } from '@/types'
 
 /** The "My Outfits" view inside My Kloset: saved looks plus a manual outfit builder. */
@@ -20,21 +21,18 @@ export function MyOutfits() {
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null)
   const [creating, setCreating] = useState(false)
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
-  const sendOutfit = (outfit: Outfit) => setShareTarget({ kind: 'outfit', outfit, items: wardrobeItems })
+  // Shop and inspiration pieces aren't in the wardrobe, so pass the resolved ones along.
+  const sendOutfit = (outfit: Outfit) => {
+    const items = resolveOutfitItems(outfit, wardrobeItems).flatMap((r) => (r.item ? [r.item] : []))
+    setShareTarget({ kind: 'outfit', outfit, items })
+  }
 
-  // Newest first, with each outfit's pieces resolved against the wardrobe
+  // Newest first, with each outfit's pieces resolved against the wardrobe (or their snapshot)
   const resolvedOutfits = useMemo(
     () =>
       [...savedOutfits]
         .sort((a, b) => (b.savedAt ?? '').localeCompare(a.savedAt ?? ''))
-        .map((outfit) => ({
-          outfit,
-          resolvedItems: outfit.items.map((oi) => ({
-            itemId: oi.itemId,
-            role: oi.role,
-            item: wardrobeItems.find((w) => w.id === oi.itemId) ?? null,
-          })),
-        })),
+        .map((outfit) => ({ outfit, resolvedItems: resolveOutfitItems(outfit, wardrobeItems) })),
     [savedOutfits, wardrobeItems]
   )
 

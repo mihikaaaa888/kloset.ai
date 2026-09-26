@@ -138,9 +138,21 @@ export interface WebShopResult {
 
 // ─── Outfits ──────────────────────────────────────────────────────────────────
 
+/** What we keep of a piece that isn't in the wardrobe (a shop find or an inspiration photo). */
+export interface PieceSnapshot {
+  source: 'shop' | 'inspiration'
+  name: string
+  category: ClothingCategory
+  imageUrl: string | null
+  colour: string[]
+  catalogId?: string
+}
+
 export interface OutfitItem {
   itemId: string
   role: 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'accessory'
+  /** Set for pieces not in the wardrobe; itemId is then the catalog id or a board piece id. */
+  snapshot?: PieceSnapshot
 }
 
 export interface Outfit {

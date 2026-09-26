@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { clsx } from 'clsx'
 
 import { ShopItemCard } from '@/components/shop/ShopItemCard'
-import { LookCard } from '@/components/shop/LookCard'
 import { BudgetDropdown } from '@/components/shop/BudgetDropdown'
 import { CompleteAPiece } from '@/components/shop/CompleteAPiece'
 import { useWardrobeStore } from '@/store/wardrobeStore'
@@ -10,21 +9,20 @@ import { useUserStore } from '@/store/userStore'
 import { useAuth } from '@/contexts/AuthContext'
 import { insertItem } from '@/lib/wardrobeService'
 import { CATALOG_ITEMS } from '@/lib/catalogData'
+import { catalogToItem } from '@/lib/outfitPieces'
 import {
-  buildShoppingLooks,
   fitsBuyBudget,
   fitsRentBudget,
   isRentable,
   rankForUser,
   type BudgetId,
 } from '@/lib/shopping'
-import type { CatalogItem, ClothingCategory, ClothingItem } from '@/types'
+import type { CatalogItem, ClothingCategory } from '@/types'
 
-type ShopMode = 'outfit' | 'piece' | 'complete' | 'rent'
+type ShopMode = 'piece' | 'complete' | 'rent'
 
-const MODES: { id: ShopMode; label: string; blurb: string }[] = [
-  { id: 'outfit', label: 'Brand-new outfit', blurb: 'Complete looks, head to toe — built around your style.' },
-  { id: 'piece', label: 'New pieces', blurb: 'Single pieces, starting with the gaps in your Kloset.' },
+const MODES: { id: ShopMode; label: string; blurb?: string }[] = [
+  { id: 'piece', label: 'New pieces' },
   { id: 'complete', label: 'Complete a piece', blurb: 'Pick something you own, or upload a photo — we’ll find what goes with it.' },
   { id: 'rent', label: 'Rent', blurb: 'Occasion and investment pieces you can rent by the week.' },
 ]
@@ -39,13 +37,16 @@ const CATEGORY_FILTERS: { value: ClothingCategory | 'all'; label: string }[] = [
   { value: 'accessories', label: 'Accessories' },
 ]
 
-/** Personal shopping — brand-new outfits, single pieces, or rentals, with one budget dropdown. */
+/** Number of top-ranked pieces shown as "Suggested for you" before the rest. */
+const SUGGESTED_COUNT = 10
+
+/** Personal shopping — new pieces, complete-a-piece, or rentals, with one budget dropdown. */
 export function DiscoverPage() {
   const { user } = useAuth()
   const { items: wardrobeItems, addItem } = useWardrobeStore()
   const profile = useUserStore((s) => s.profile)
 
-  const [mode, setMode] = useState<ShopMode>('outfit')
+  const [mode, setMode] = useState<ShopMode>('piece')
   const [budget, setBudget] = useState<BudgetId>('any')
   const [category, setCategory] = useState<ClothingCategory | 'all'>('all')
   // Items added this session, for instant UI feedback before the store syncs.
@@ -57,8 +58,6 @@ export function DiscoverPage() {
   )
   const isInWardrobe = (id: string) => addedCatalogIds.has(id) || addedThisSession.has(id)
 
-  const looks = useMemo(() => buildShoppingLooks(profile, budget), [profile, budget])
-
   const pieces = useMemo(() => {
     const pool = CATALOG_ITEMS.filter((item) => {
       if (mode === 'rent') return isRentable(item) && fitsRentBudget(item, budget)
@@ -69,27 +68,7 @@ export function DiscoverPage() {
 
   const handleAdd = (catalogItem: CatalogItem) => {
     if (isInWardrobe(catalogItem.id)) return
-    const now = new Date().toISOString()
-    const newItem: ClothingItem = {
-      id: crypto.randomUUID(),
-      name: catalogItem.name,
-      category: catalogItem.category,
-      subcategory: catalogItem.subcategory,
-      imageUrl: catalogItem.imageUrl,
-      imageSource: 'remote',
-      colour: catalogItem.colours,
-      material: catalogItem.material,
-      pattern: catalogItem.pattern,
-      fit: catalogItem.fit,
-      formality: catalogItem.formality,
-      seasons: catalogItem.seasons,
-      occasions: catalogItem.occasions,
-      isFavourite: false,
-      timesWorn: 0,
-      createdAt: now,
-      updatedAt: now,
-      catalogId: catalogItem.id,
-    }
+    const newItem = catalogToItem(catalogItem, crypto.randomUUID())
 
     console.log('[shop] add to Kloset', { id: catalogItem.id, mode })
     addItem(newItem)
@@ -100,8 +79,25 @@ export function DiscoverPage() {
   }
 
   const activeMode = MODES.find((m) => m.id === mode)!
-  const resultCount = mode === 'outfit' ? looks.length : pieces.length
+  const resultCount = pieces.length
   const isEmpty = resultCount === 0
+  // New pieces open with the best matches for this user; everything else follows.
+  const suggested = mode === 'piece' ? pieces.slice(0, SUGGESTED_COUNT) : []
+  const rest = mode === 'piece' ? pieces.slice(SUGGESTED_COUNT) : pieces
+
+  const renderGrid = (list: CatalogItem[]) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-10">
+      {list.map((item) => (
+        <ShopItemCard
+          key={item.id}
+          item={item}
+          mode={mode === 'rent' ? 'rent' : 'buy'}
+          inWardrobe={isInWardrobe(item.id)}
+          onAdd={() => handleAdd(item)}
+        />
+      ))}
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
@@ -115,7 +111,7 @@ export function DiscoverPage() {
           <h1 className="font-display text-4xl lg:text-5xl font-medium text-text-primary">
             Shop for you
           </h1>
-          <p className="text-text-muted text-sm mt-3">{activeMode.blurb}</p>
+          {activeMode.blurb && <p className="text-text-muted text-sm mt-3">{activeMode.blurb}</p>}
         </header>
 
         {/* ── Toolbar: mode tabs + budget ── */}
@@ -141,8 +137,8 @@ export function DiscoverPage() {
           </div>
         </div>
 
-        {/* ── Category (single pieces + rentals only) ── */}
-        {(mode === 'piece' || mode === 'rent') && (
+        {/* ── Category (new pieces + rentals) ── */}
+        {mode !== 'complete' && (
           <div className="flex gap-6 overflow-x-auto no-scrollbar pt-5">
             {CATEGORY_FILTERS.map((f) => (
               <button
@@ -158,7 +154,7 @@ export function DiscoverPage() {
 
         {mode !== 'complete' && (
           <p className="text-2xs uppercase tracking-widest text-text-muted pt-5 pb-6">
-            {resultCount} {mode === 'outfit' ? (resultCount === 1 ? 'look' : 'looks') : resultCount === 1 ? 'piece' : 'pieces'}
+            {resultCount} {resultCount === 1 ? 'piece' : 'pieces'}
           </p>
         )}
 
@@ -183,29 +179,24 @@ export function DiscoverPage() {
               Show everything
             </button>
           </div>
-        ) : mode === 'outfit' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-14">
-            {looks.map((look) => (
-              <LookCard
-                key={look.id}
-                look={look}
-                isInWardrobe={isInWardrobe}
-                onAddLook={() => look.pieces.forEach(handleAdd)}
-              />
-            ))}
-          </div>
+        ) : suggested.length > 0 ? (
+          <>
+            <section aria-labelledby="shop-suggested">
+              <div className="flex items-baseline justify-between gap-4 mb-6">
+                <h2 id="shop-suggested" className="font-display text-2xl lg:text-3xl text-text-primary">Suggested for you</h2>
+                <p className="text-2xs uppercase tracking-widest text-text-muted">Based on your style</p>
+              </div>
+              {renderGrid(suggested)}
+            </section>
+            {rest.length > 0 && (
+              <section aria-labelledby="shop-more" className="mt-16 pt-10 border-t border-text-primary/10">
+                <h2 id="shop-more" className="font-display text-2xl lg:text-3xl text-text-primary mb-6">More pieces</h2>
+                {renderGrid(rest)}
+              </section>
+            )}
+          </>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-            {pieces.map((item) => (
-              <ShopItemCard
-                key={item.id}
-                item={item}
-                mode={mode === 'rent' ? 'rent' : 'buy'}
-                inWardrobe={isInWardrobe(item.id)}
-                onAdd={() => handleAdd(item)}
-              />
-            ))}
-          </div>
+          renderGrid(rest)
         )}
       </div>
     </div>

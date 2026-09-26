@@ -123,7 +123,7 @@ export function HomePage() {
               Shop <em className="italic">for you</em>
             </h3>
             <p className="text-dark-purple/75 text-sm mt-4 max-w-md">
-              New outfits and pieces, finds for what you own, or rentals — picked for your style and budget.
+              New pieces, finds for what you own, or rentals — picked for your style and budget.
             </p>
           </div>
           <span className="flex items-center gap-2 text-2xs uppercase tracking-widest font-semibold text-dark-purple flex-shrink-0">

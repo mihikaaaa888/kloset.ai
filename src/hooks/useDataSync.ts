@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { fetchProfile, upsertProfile } from '@/lib/profileService'
 import { fetchWardrobe, backfillPhotos } from '@/lib/wardrobeService'
+import type { ClothingItem } from '@/types'
 
 // Loads the authenticated user's profile and wardrobe from Supabase into local stores.
 // Runs once per login. Clears local stores on logout.
@@ -51,9 +52,9 @@ export function useDataSync() {
         setProfile(remote)
       }
 
-      setItems(items)
+      if (items) setItems(items)
       markLoaded(userId)
-      backfillPhotos(userId, items).catch((e) => console.error('[sync] photo backfill failed', e))
+      backfillPhotos(userId, items ?? useWardrobeStore.getState().items).catch((e) => console.error('[sync] photo backfill failed', e))
       console.log('[sync] profile ready', {
         onboardingComplete: !!useUserStore.getState().profile?.onboardingComplete,
       })
@@ -61,4 +62,39 @@ export function useDataSync() {
 
     sync()
   }, [user, setProfile, clearProfile, markLoaded, setItems])
+
+  // Pieces added on another device (say, photos from the phone) only arrive on a
+  // fetch, so re-pull the wardrobe whenever this tab comes back into view.
+  useEffect(() => {
+    if (!user) return
+    const userId = user.id
+    let lastRefresh = Date.now()
+
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastRefresh < REFRESH_GAP_MS) return
+      lastRefresh = Date.now()
+      const remote = await fetchWardrobe(userId)
+      if (!remote || prevUserIdRef.current !== userId) return
+      setItems(mergeWithUnsaved(remote, useWardrobeStore.getState().items))
+      console.log('[sync] wardrobe refreshed', { items: remote.length })
+      backfillPhotos(userId, remote).catch((e) => console.error('[sync] photo backfill failed', e))
+    }
+
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [user, setItems])
+}
+
+const REFRESH_GAP_MS = 10_000
+
+/** Server copy wins, but a piece added here in the last minute may still be uploading — keep it. */
+function mergeWithUnsaved(remote: ClothingItem[], local: ClothingItem[]): ClothingItem[] {
+  const remoteIds = new Set(remote.map((i) => i.id))
+  const cutoff = Date.now() - 60_000
+  const unsaved = local.filter((i) => !remoteIds.has(i.id) && Date.parse(i.createdAt) > cutoff)
+  return [...remote, ...unsaved]
 }

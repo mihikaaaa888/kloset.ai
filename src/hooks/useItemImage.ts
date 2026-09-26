@@ -7,29 +7,28 @@ import type { ClothingItem } from '@/types'
  * Resolves a displayable image URL for a ClothingItem.
  *
  * Priority:
- *   1. item.imageUrl — backwards-compat: old base64 data URLs still work immediately
- *   2. item.imageId  — new path: loads Blob from IndexedDB, creates object URL
- *   3. item.imageStoragePath — photo taken on another device, served from Supabase Storage
+ *   1. item.imageId  — photo taken on this device: loads the Blob from IndexedDB
+ *   2. item.imageStoragePath — photo taken on another device, served from Supabase Storage
+ *   3. item.imageUrl — remote/catalog photo, legacy base64, or the small copy saved
+ *                      when a photo couldn't be uploaded to Storage
  *   4. null          — no image; show placeholder
  *
  * Automatically revokes any created object URLs on unmount or item change.
  */
 export function useItemImage(item: ClothingItem | null | undefined): string | null {
-  // Seed state immediately for base64 items — avoids a placeholder flash
+  // Seed state immediately so there's no placeholder flash while the full photo loads
   const [url, setUrl] = useState<string | null>(item?.imageUrl ?? null)
 
   useEffect(() => {
     if (!item) { setUrl(null); return }
 
-    // Backwards compat: existing base64 / remote imageUrl takes priority
-    if (item.imageUrl) { setUrl(item.imageUrl); return }
-
-    if (!item.imageId && !item.imageStoragePath) { setUrl(null); return }
+    if (!item.imageId && !item.imageStoragePath) { setUrl(item.imageUrl ?? null); return }
+    if (item.imageUrl) setUrl(item.imageUrl)
 
     let objectUrl: string | null = null
     let cancelled = false
 
-    // Local copy first; a photo added on another device only exists in storage.
+    // Local copy first; a photo added on another device only exists in storage or on the row.
     const local = item.imageId ? getImage(item.imageId).catch(() => null) : Promise.resolve(null)
     local
       .then(async (blob) => {
@@ -40,9 +39,9 @@ export function useItemImage(item: ClothingItem | null | undefined): string | nu
           return
         }
         const remote = item.imageStoragePath ? await getPhotoUrl(item.imageStoragePath) : null
-        if (!cancelled) setUrl(remote)
+        if (!cancelled) setUrl(remote ?? item.imageUrl ?? null)
       })
-      .catch(() => { if (!cancelled) setUrl(null) })
+      .catch(() => { if (!cancelled) setUrl(item.imageUrl ?? null) })
 
     return () => {
       cancelled = true

@@ -15,6 +15,7 @@ import {
   validateImageFile,
   compressImage,
 } from '@/lib/imageStorage'
+import { getPhotoUrl } from '@/lib/wardrobeService'
 import { analyzeImage, analyzeImageFromUrl } from '@/lib/analyzeImage'
 import type { ClothingAnalysis } from '@/lib/analyzeImage'
 import type { ClothingItem, ClothingCategory, Pattern, Season, Occasion } from '@/types'
@@ -215,14 +216,16 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
     if (!open || !editItem?.imageId || editItem.imageUrl) return
     let cancelled = false
 
-    getImage(editItem.imageId).then((blob) => {
-      if (cancelled || !blob) return
-      const url = URL.createObjectURL(blob)
-      setPreviewUrl(url)
+    getImage(editItem.imageId).then(async (blob) => {
+      if (cancelled) return
+      if (blob) { setPreviewUrl(URL.createObjectURL(blob)); return }
+      // Photo taken on another device
+      const remote = editItem.imageStoragePath ? await getPhotoUrl(editItem.imageStoragePath) : null
+      if (!cancelled && remote) setPreviewUrl(remote)
     }).catch(() => {})
 
     return () => { cancelled = true }
-  }, [open, editItem?.imageId, editItem?.imageUrl])
+  }, [open, editItem?.imageId, editItem?.imageUrl, editItem?.imageStoragePath])
 
   // ── Process selected files ───────────────────────────────────────────────────
   const processFiles = useCallback(async (files: File[]) => {
@@ -491,7 +494,12 @@ export function AddItemModal({ open, onClose, onSave, editItem }: AddItemModalPr
 
     // Determine image fields
     const imageFields: Pick<ClothingItem, 'imageId' | 'imageUrl' | 'imageSource'> = activeImageId
-      ? { imageId: activeImageId, imageUrl: null, imageSource: 'local' }
+      ? {
+          imageId: activeImageId,
+          // Same photo as before: keep the small cross-device copy, if the row has one.
+          imageUrl: activeImageId === editItem?.imageId ? editItem.imageUrl : null,
+          imageSource: 'local',
+        }
       : legacyImageUrl
       ? { imageId: undefined, imageUrl: legacyImageUrl, imageSource: legacyImageUrl.startsWith('http') ? 'remote' : 'local' }
       : { imageId: undefined, imageUrl: null, imageSource: 'none' }

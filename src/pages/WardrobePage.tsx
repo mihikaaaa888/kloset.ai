@@ -8,6 +8,7 @@ import { ClothingCard } from '@/components/wardrobe/ClothingCard'
 import { AddItemModal } from '@/components/wardrobe/AddItemModal'
 import { ItemDetailModal } from '@/components/wardrobe/ItemDetailModal'
 import { MyOutfits } from '@/components/saved/MyOutfits'
+import { BuildBoard } from '@/components/build/BuildBoard'
 import { ShareSheet } from '@/components/friends/ShareSheet'
 import type { ShareTarget } from '@/lib/friendService'
 import { Button } from '@/components/ui/Button'
@@ -20,14 +21,17 @@ import { useAuth } from '@/contexts/AuthContext'
 import { insertItem, updateItem as dbUpdateItem, deleteItem as dbDeleteItem } from '@/lib/wardrobeService'
 import type { ClothingItem, ClothingCategory } from '@/types'
 
+type KlosetView = 'pieces' | 'build' | 'outfits'
+
 export function WardrobePage() {
   const navigate = useNavigate()
   const profile = useUserStore((s) => s.profile)
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const view: 'pieces' | 'outfits' = searchParams.get('view') === 'outfits' ? 'outfits' : 'pieces'
-  const setView = (next: 'pieces' | 'outfits') => {
-    setSearchParams(next === 'outfits' ? { view: 'outfits' } : {}, { replace: true })
+  const viewParam = searchParams.get('view')
+  const view: KlosetView = viewParam === 'outfits' || viewParam === 'build' ? viewParam : 'pieces'
+  const setView = (next: KlosetView) => {
+    setSearchParams(next === 'pieces' ? {} : { view: next }, { replace: true })
     console.log('[wardrobe] view changed', next)
   }
   const { items, addItem, updateItem, removeItem, toggleFavourite, activeCategory, setActiveCategory } =
@@ -163,7 +167,7 @@ export function WardrobePage() {
 
         {/* View switch */}
         <div role="tablist" aria-label="My Kloset sections" className="flex gap-8 border-b border-text-primary/10 mb-8">
-          {([['pieces', 'Pieces'], ['outfits', 'My Outfits']] as const).map(([value, label]) => (
+          {([['pieces', 'Pieces'], ['build', 'Build'], ['outfits', 'My Outfits']] as const).map(([value, label]) => (
             <button
               key={value}
               role="tab"
@@ -181,7 +185,7 @@ export function WardrobePage() {
           ))}
         </div>
 
-        {view === 'outfits' ? <MyOutfits /> : <>
+        {view === 'outfits' ? <MyOutfits /> : view === 'build' ? <BuildBoard onSaved={() => setView('outfits')} /> : <>
 
         {/* Search bar */}
         {showSearch && (

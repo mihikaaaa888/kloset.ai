@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type { ClothingItem } from '@/types'
-import { getImage } from './imageStorage'
+import { getImage, toPortableDataUrl } from './imageStorage'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 
 type DbItem = {
@@ -84,7 +84,8 @@ function toRow(userId: string, item: ClothingItem): Omit<DbItem, 'user_id'> & { 
   }
 }
 
-export async function fetchWardrobe(userId: string): Promise<ClothingItem[]> {
+/** The user's wardrobe, or null when the fetch failed (so callers don't mistake an error for an empty Kloset). */
+export async function fetchWardrobe(userId: string): Promise<ClothingItem[] | null> {
   const { data, error } = await supabase
     .from('wardrobe_items')
     .select('*')
@@ -93,7 +94,7 @@ export async function fetchWardrobe(userId: string): Promise<ClothingItem[]> {
 
   if (error || !data) {
     console.error('[wardrobe] fetch failed', error?.message)
-    return []
+    return null
   }
   console.log('[wardrobe] fetched', data.length, 'items')
   return (data as DbItem[]).map(toItem)
@@ -102,7 +103,9 @@ export async function fetchWardrobe(userId: string): Promise<ClothingItem[]> {
 // ─── Photos ─────────────────────────────────────────────────────────────────
 // Photos are captured into this browser's IndexedDB. A copy goes to the private
 // wardrobe-images bucket (supabase/wardrobe_photos.sql) so the phone can show
-// pieces added on the laptop and vice versa.
+// pieces added on the laptop and vice versa. If that upload fails (bucket
+// missing, policy error, flaky mobile network) a small JPEG goes on the row
+// itself as image_url, so the other device never ends up with a blank card.
 
 const PHOTO_BUCKET = 'wardrobe-images'
 
@@ -110,10 +113,15 @@ function photoPath(userId: string, item: ClothingItem): string | null {
   return item.imageId ? `${userId}/${item.imageId}.jpg` : null
 }
 
-/** Uploads the item's local photo if storage doesn't have this version yet. Returns the item to save. */
+/** True when another device can't show this item's photo yet. */
+function needsPhotoSync(userId: string, item: ClothingItem): boolean {
+  return !!item.imageId && item.imageStoragePath !== photoPath(userId, item) && !item.imageUrl
+}
+
+/** Uploads the item's local photo if other devices can't see it yet. Returns the item to save. */
 async function withUploadedPhoto(userId: string, item: ClothingItem): Promise<ClothingItem> {
-  const path = photoPath(userId, item)
-  if (!path || item.imageStoragePath === path) return item
+  if (!needsPhotoSync(userId, item)) return item
+  const path = photoPath(userId, item)!
 
   const blob = await getImage(item.imageId!).catch(() => null)
   if (!blob) return item // Photo lives on another device; nothing to upload from here.
@@ -121,13 +129,17 @@ async function withUploadedPhoto(userId: string, item: ClothingItem): Promise<Cl
   const { error } = await supabase.storage
     .from(PHOTO_BUCKET)
     .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
-  if (error) {
-    console.error('[wardrobe] photo upload failed — run supabase/wardrobe_photos.sql if the bucket is missing', error.message)
-    return item
+  if (!error) {
+    console.log('[wardrobe] photo uploaded', { itemId: item.id })
+    useWardrobeStore.getState().updateItem(item.id, { imageStoragePath: path })
+    return { ...item, imageStoragePath: path }
   }
-  console.log('[wardrobe] photo uploaded', { itemId: item.id })
-  useWardrobeStore.getState().updateItem(item.id, { imageStoragePath: path })
-  return { ...item, imageStoragePath: path }
+
+  console.error('[wardrobe] photo upload failed, saving a small copy on the row instead — run supabase/wardrobe_photos.sql if the bucket is missing', error.message)
+  const dataUrl = await toPortableDataUrl(blob)
+  if (!dataUrl) return item
+  useWardrobeStore.getState().updateItem(item.id, { imageUrl: dataUrl })
+  return { ...item, imageUrl: dataUrl }
 }
 
 const signedUrlCache = new Map<string, Promise<string | null>>()
@@ -152,21 +164,20 @@ export function getPhotoUrl(path: string): Promise<string | null> {
   return cached
 }
 
-/** Uploads photos this device has that storage doesn't — heals items added before photo sync existed. */
+/** Uploads photos this device has that other devices can't see — heals items whose upload failed. */
 export async function backfillPhotos(userId: string, items: ClothingItem[]): Promise<void> {
-  const pending = items.filter((i) => i.imageId && i.imageStoragePath !== photoPath(userId, i))
+  const pending = items.filter((i) => needsPhotoSync(userId, i))
   if (pending.length === 0) return
   console.log('[wardrobe] checking', pending.length, 'photos for upload')
   for (const item of pending) {
     const saved = await withUploadedPhoto(userId, item)
-    if (saved.imageStoragePath !== item.imageStoragePath) {
-      const { error } = await supabase
-        .from('wardrobe_items')
-        .update({ image_storage_path: saved.imageStoragePath })
-        .eq('id', item.id)
-        .eq('user_id', userId)
-      if (error) console.error('[wardrobe] saving photo path failed', item.id, error.message)
-    }
+    if (saved === item) continue
+    const { error } = await supabase
+      .from('wardrobe_items')
+      .update({ image_storage_path: saved.imageStoragePath ?? null, image_url: saved.imageUrl })
+      .eq('id', item.id)
+      .eq('user_id', userId)
+    if (error) console.error('[wardrobe] saving photo path failed', item.id, error.message)
   }
 }
 
