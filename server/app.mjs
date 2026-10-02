@@ -341,7 +341,8 @@ app.post('/api/web-shop-search', async (req, res) => {
         domain,
         retailer: retailerNameFor(domain),
         snippet: (r.highlights?.[0] ?? r.text ?? '').trim().slice(0, 200),
-        imageUrl: r.image ?? null,
+        // The live site is https — an http:// image is mixed content some browsers block.
+        imageUrl: r.image ? r.image.replace(/^http:\/\//i, 'https://') : null,
       }
     })
 
