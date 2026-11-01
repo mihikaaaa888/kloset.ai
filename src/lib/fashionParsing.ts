@@ -74,6 +74,77 @@ function maskAt(mask: SegmentationMask['mask'], x: number, y: number, width: num
   return mask.data[(my * mask.width + mx) * mask.channels] > 127
 }
 
+/**
+ * Clothing segmentation is semantic, so a mask can contain multiple garments
+ * of the same type (for example worn trousers plus trousers on a hanger).
+ * For photos containing a person, keep only mask components that meet the
+ * person's segmented silhouette. This avoids saving nearby background clothes
+ * as part of the outfit while still retaining disconnected product-photo items.
+ */
+function keepPersonAttachedComponents(
+  garment: SegmentationMask,
+  bodyMasks: SegmentationMask[],
+): SegmentationMask {
+  const { width, height, channels } = garment.mask
+  const source = garment.mask.data
+  const body = new Uint8Array(width * height)
+  let hasBodyPixels = false
+  for (const bodyMask of bodyMasks) {
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (maskAt(bodyMask.mask, x, y, width, height)) {
+        body[y * width + x] = 1
+        hasBodyPixels = true
+      }
+    }
+  }
+  // If the model failed to produce a usable silhouette, don't erase the item.
+  if (!hasBodyPixels) return garment
+
+  // A tiny dilation handles the narrow semantic seams between a garment and
+  // the adjacent arm, leg, or torso label without reaching nearby objects.
+  const nearBody = new Uint8Array(body.length)
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    if (!body[y * width + x]) continue
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height) nearBody[ny * width + nx] = 1
+    }
+  }
+
+  const visited = new Uint8Array(width * height)
+  const keep = new Uint8Array(width * height)
+  for (let start = 0; start < width * height; start++) {
+    if (visited[start] || source[start * channels] <= 127) continue
+    const component: number[] = [start]
+    visited[start] = 1
+    let touchesPerson = false
+    for (let i = 0; i < component.length; i++) {
+      const index = component[i]
+      if (nearBody[index]) touchesPerson = true
+      const x = index % width, y = Math.floor(index / width)
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
+        const neighbor = ny * width + nx
+        if (!visited[neighbor] && source[neighbor * channels] > 127) {
+          visited[neighbor] = 1
+          component.push(neighbor)
+        }
+      }
+    }
+    if (touchesPerson) for (const index of component) keep[index] = 1
+  }
+
+  const filtered = new Uint8Array(source.length)
+  for (let i = 0; i < keep.length; i++) {
+    if (!keep[i]) continue
+    const offset = i * channels
+    for (let channel = 0; channel < channels; channel++) filtered[offset + channel] = source[offset + channel]
+  }
+  return { ...garment, mask: { ...garment.mask, data: filtered } }
+}
+
 /** Segment locally; original photo pixels never leave the browser. */
 export async function parseOutfitPhoto(source: Blob): Promise<ParsedPhoto> {
   const image = await decodeImage(source)
@@ -86,6 +157,11 @@ export async function parseOutfitPhoto(source: Blob): Promise<ParsedPhoto> {
   }
 
   const byLabel = new Map(masks.map((mask) => [mask.label.toLowerCase(), mask]))
+  const containsPerson = masks.some(({ label }) => HUMAN_LABELS.has(label.toLowerCase()))
+  const bodyMasks = [...HUMAN_LABELS]
+    .filter((label) => !['face', 'hair', 'sunglasses'].includes(label))
+    .map((label) => byLabel.get(label))
+    .filter((mask): mask is SegmentationMask => !!mask)
   // Keep crop geometry at the uploaded image's resolution. The old fixed
   // 512x512 canvas made every saved garment look blurry on phone screens.
   const inputWidth = image.naturalWidth
@@ -96,8 +172,11 @@ export async function parseOutfitPhoto(source: Blob): Promise<ParsedPhoto> {
     if (!mask) continue
     const key = info.category === 'shoes' ? 'shoes' : label
     const existing = garmentGroups.get(key)
-    if (existing) existing.masks.push(mask)
-    else garmentGroups.set(key, { masks: [mask], category: info.category, name: info.name })
+    const relevantMask = containsPerson && bodyMasks.length > 0
+      ? keepPersonAttachedComponents(mask, bodyMasks)
+      : mask
+    if (existing) existing.masks.push(relevantMask)
+    else garmentGroups.set(key, { masks: [relevantMask], category: info.category, name: info.name })
   }
 
   const garments: ParsedGarment[] = []
@@ -145,5 +224,5 @@ export async function parseOutfitPhoto(source: Blob): Promise<ParsedPhoto> {
     }
   }
   safeContext.putImageData(pixels, 0, 0)
-  return { garments, containsPerson: masks.some(({ label }) => HUMAN_LABELS.has(label.toLowerCase())), safeFallback: await canvasBlob(safe) }
+  return { garments, containsPerson, safeFallback: await canvasBlob(safe) }
 }

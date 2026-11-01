@@ -1,4 +1,4 @@
-import { Heart, Sparkles, Trash2 } from 'lucide-react'
+import { Heart, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { ClothingItem } from '@/types'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
@@ -102,7 +102,6 @@ export function ClothingCard({ item, onClick, onToggleFavourite, onStyleThis, on
             onClick={onStyleThis}
             className="pointer-events-auto w-full h-10 flex items-center justify-center gap-2 bg-warm-cream/95 backdrop-blur-sm text-text-primary text-2xs font-semibold uppercase tracking-widest translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 transition-all duration-300 ease-editorial hover:bg-text-primary hover:text-warm-cream"
           >
-            <Sparkles size={13} strokeWidth={1.25} />
             Style this
           </button>
         </div>

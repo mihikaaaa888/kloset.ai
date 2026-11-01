@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
 
 import { SavedOutfitCard } from '@/components/saved/SavedOutfitCard'
 import { SavedOutfitDetailModal } from '@/components/saved/SavedOutfitDetailModal'
@@ -103,7 +102,7 @@ export function MyOutfits() {
           onClick={() => navigate('/stylist')}
           className="h-10 px-4 flex items-center gap-2 ring-1 ring-inset ring-text-primary/20 text-2xs font-medium uppercase tracking-widest text-text-primary hover:ring-text-primary/50"
         >
-          <Sparkles size={14} strokeWidth={1.25} /> Ask the stylist
+          Ask the stylist
         </button>}
       </div>
 

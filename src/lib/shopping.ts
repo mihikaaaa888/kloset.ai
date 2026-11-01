@@ -1,4 +1,4 @@
-import { CATALOG_ITEMS } from '@/lib/catalogData'
+import { ALL_CATALOG_ITEMS } from '@/lib/catalogData'
 import type { CatalogItem, ClothingCategory, ClothingItem, StylePreference, UserProfile } from '@/types'
 import { affinityForLearnedTraits } from '@/lib/styleLearning'
 import { learnStyleFromWardrobe } from '@/lib/styleLearning'
@@ -153,8 +153,16 @@ export function recommendForPiece(
   const styles = profile?.stylePreferences ?? []
   const groups = COMPLEMENTS[anchor.category].map((category) => ({
     category,
-    items: CATALOG_ITEMS
-      .filter((i) => i.category === category && fitsBuyBudget(i, budget))
+    items: ALL_CATALOG_ITEMS
+      .filter((i) => {
+        const preference = profile?.genderStylePreference
+        const matchesGender = preference === 'feminine'
+          ? i.gender === 'women'
+          : preference === 'masculine'
+            ? i.gender === 'men'
+            : true
+        return matchesGender && i.category === category && fitsBuyBudget(i, budget)
+      })
       .sort((a, b) => complementScore(b, anchor, styles) - complementScore(a, anchor, styles))
       .slice(0, perCategory),
   })).filter((g) => g.items.length > 0)

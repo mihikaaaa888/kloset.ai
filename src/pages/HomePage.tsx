@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shirt, Heart, Plus, ArrowRight, Sparkles, Cloud, CloudDrizzle, CloudLightning, CloudOff, CloudRain, CloudSnow, CloudSun, Sun, type LucideIcon } from 'lucide-react'
+import { Shirt, Heart, Plus, ArrowRight, Cloud, CloudDrizzle, CloudLightning, CloudOff, CloudRain, CloudSnow, CloudSun, Sun, type LucideIcon } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useItemImage } from '@/hooks/useItemImage'
@@ -204,12 +204,11 @@ function DailyOutfitCard({ items, profile, onAskStylist }: {
           return <><Icon size={18} className="text-deep-purple" /><span>{weather.label} · {Math.round(weather.temperature)}°C</span></>
         })() : <><CloudOff size={18} className="text-deep-purple" /><span>{weatherError ? 'Weather unavailable — allow location access to see local conditions.' : 'Checking today’s weather…'}</span></>}
       </div>
-      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(17rem,18rem)_minmax(18rem,20rem)_minmax(0,1fr)] lg:gap-x-12 lg:gap-y-0">
-        <div aria-live="polite">
+      <div className="daily-outfit-shell mt-6">
+        <div className="daily-outfit-layout">
+          <div className="daily-outfit-items" aria-live="polite">
           {recommendedItems.length ? (
-            <div className={`grid gap-4 ${recommendedItems.length === 1 ? 'max-w-sm grid-cols-1' : 'grid-cols-2'}`}>
-              {recommendedItems.map((item) => <RecommendationPiece key={item.id} item={item} />)}
-            </div>
+            recommendedItems.map((item) => <RecommendationPiece key={item.id} item={item} />)
           ) : items.length < 2 ? (
             <p className="text-sm text-text-muted">Add at least two pieces to your Kloset for a personal outfit recommendation.</p>
           ) : recommendationLoading || (!weather && !weatherError) ? (
@@ -217,10 +216,9 @@ function DailyOutfitCard({ items, profile, onAskStylist }: {
           ) : (
             <p className="text-sm text-text-muted">Add a top and bottom, or a dress, for a complete outfit recommendation.</p>
           )}
-        </div>
-        <aside className="min-h-[22rem] border border-text-primary/10 bg-surface p-5 sm:p-6" aria-labelledby="styling-tips-title">
-          <div className="mb-4 flex items-center gap-2 text-[#355E3B] dark:text-[#9BC89D]">
-            <Sparkles size={17} aria-hidden="true" />
+          </div>
+          <aside className="daily-outfit-tips border border-text-primary/10 bg-surface p-5 sm:p-6" aria-labelledby="styling-tips-title">
+          <div className="mb-4 text-[#355E3B] dark:text-[#9BC89D]">
             <h3 id="styling-tips-title" className="text-2xs font-semibold uppercase tracking-ultra-wide">Styling tips</h3>
           </div>
           <ul className="space-y-4">
@@ -231,14 +229,15 @@ function DailyOutfitCard({ items, profile, onAskStylist }: {
               </li>
             ))}
           </ul>
-        </aside>
-        <button
+          </aside>
+          <button
           onClick={onAskStylist}
-          className="mt-12 flex h-12 w-full items-center justify-between bg-[#355E3B] px-5 text-sm font-medium tracking-wide text-[#FFFDD0] transition-colors hover:bg-[#2B4E31] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#355E3B] lg:col-span-2 lg:w-[calc(100%+5rem)]"
+          className="daily-outfit-ask mt-12 flex h-12 w-full items-center justify-between bg-[#355E3B] px-5 text-sm font-medium tracking-wide text-[#FFFDD0] transition-colors hover:bg-[#2B4E31] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#355E3B]"
         >
           <span>Ask stylist</span>
           <ArrowRight size={18} aria-hidden="true" />
-        </button>
+          </button>
+        </div>
       </div>
     </section>
   )
@@ -248,7 +247,7 @@ function RecommendationPiece({ item }: { item: ClothingItem }) {
   const imageUrl = useItemImage(item)
 
   return (
-    <div className="min-w-0">
+    <div className="daily-outfit-piece min-w-0">
       <div className="aspect-[4/5] overflow-hidden bg-surface">
         {imageUrl ? <img src={imageUrl} alt={item.name} className="h-full w-full object-contain p-3" /> : <div className="flex h-full w-full items-center justify-center"><Shirt size={28} className="text-text-primary/25" /></div>}
       </div>

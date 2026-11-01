@@ -20,7 +20,6 @@ import {
 import type { CatalogItem, ClothingCategory } from '@/types'
 
 type ShopMode = 'piece' | 'complete' | 'rent'
-type Section = 'women' | 'men'
 
 const MODES: { id: ShopMode; label: string; blurb?: string }[] = [
   { id: 'piece', label: 'Shop' },
@@ -48,7 +47,6 @@ export function DiscoverPage() {
   const profile = useUserStore((s) => s.profile)
 
   const [mode, setMode] = useState<ShopMode>('piece')
-  const [section, setSection] = useState<Section>(profile?.genderStylePreference === 'masculine' ? 'men' : 'women')
   const [budget, setBudget] = useState<BudgetId>('any')
   const [category, setCategory] = useState<ClothingCategory | 'all'>('all')
   // Items added this session, for instant UI feedback before the store syncs.
@@ -61,12 +59,18 @@ export function DiscoverPage() {
   const isInWardrobe = (id: string) => addedCatalogIds.has(id) || addedThisSession.has(id)
 
   const pieces = useMemo(() => {
-    const pool = ALL_CATALOG_ITEMS.filter((item) => (item.gender ?? 'women') === section).filter((item) => {
+    const preference = profile?.genderStylePreference
+    const genders = preference === 'feminine'
+      ? ['women']
+      : preference === 'masculine'
+        ? ['men']
+        : ['women', 'men']
+    const pool = ALL_CATALOG_ITEMS.filter((item) => genders.includes(item.gender ?? 'women')).filter((item) => {
       if (mode === 'rent') return isRentable(item) && fitsRentBudget(item, budget)
       return fitsBuyBudget(item, budget)
     }).filter((item) => category === 'all' || item.category === category)
     return rankForUser(pool, profile, wardrobeItems)
-  }, [mode, section, budget, category, profile, wardrobeItems])
+  }, [mode, budget, category, profile, wardrobeItems])
 
   const handleAdd = (catalogItem: CatalogItem) => {
     if (isInWardrobe(catalogItem.id)) return
@@ -104,7 +108,7 @@ export function DiscoverPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ── Toolbar: mode tabs + budget ── */}
-        <div className="pt-24 flex flex-col-reverse sm:flex-row sm:items-end justify-between gap-4 border-b border-text-primary/10 pb-3">
+        <div className="pt-12 flex flex-col-reverse sm:flex-row sm:items-end justify-between gap-4 border-b border-text-primary/10 pb-3">
           <nav className="flex gap-6 sm:gap-10 overflow-x-auto no-scrollbar" aria-label="Shopping mode">
             {MODES.map((m) => (
               <button
@@ -125,22 +129,6 @@ export function DiscoverPage() {
             <BudgetDropdown value={budget} onChange={setBudget} mode="buy" />
           </div>}
         </div>
-
-        {/* ── Women / Men ── */}
-        {mode === 'piece' && (
-          <div className="flex gap-6 pt-5" role="group" aria-label="Shop section">
-            {(['women', 'men'] as Section[]).map((sec) => (
-              <button
-                key={sec}
-                onClick={() => { setSection(sec); setCategory('all') }}
-                aria-pressed={section === sec}
-                className={clsx('text-tab flex-shrink-0 capitalize', section === sec && 'text-tab-active')}
-              >
-                {sec}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* ── Category (new pieces + rentals) ── */}
         {mode === 'piece' && (

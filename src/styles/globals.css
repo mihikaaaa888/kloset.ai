@@ -220,6 +220,70 @@
   }
 }
 
+/* Keep every daily outfit image at the same card width. On wide screens, the
+   styling panel follows the entire image row, so adding pieces moves it right. */
+@layer components {
+  .daily-outfit-shell {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .daily-outfit-shell::-webkit-scrollbar {
+    display: none;
+  }
+  .daily-outfit-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    min-width: 0;
+  }
+  .daily-outfit-items {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: min(18rem, calc(100vw - 2rem));
+    gap: 1rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .daily-outfit-items::-webkit-scrollbar {
+    display: none;
+  }
+  .daily-outfit-tips,
+  .daily-outfit-ask {
+    grid-column: 1;
+  }
+  .daily-outfit-piece {
+    width: min(18rem, calc(100vw - 2rem));
+  }
+
+  @media (min-width: 1024px) {
+    .daily-outfit-layout {
+      width: max-content;
+      min-width: 100%;
+      grid-template-columns: max-content minmax(20rem, 1fr);
+      column-gap: 3rem;
+      row-gap: 0;
+      align-items: start;
+    }
+    .daily-outfit-items {
+      grid-auto-columns: 18rem;
+      overflow: visible;
+    }
+    .daily-outfit-piece {
+      width: 18rem;
+    }
+    .daily-outfit-tips {
+      grid-column: 2;
+      width: 20rem;
+      min-height: 22rem;
+    }
+    .daily-outfit-ask {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
 /* Undo toast: the bar under the message drains over the undo window. */
 @keyframes undo-countdown {
   from { transform: scaleX(1); }
