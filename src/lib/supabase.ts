@@ -1,7 +1,18 @@
-<html>
-<head><title>302 Found</title><script src="/_aistudio-iframe.js?v=1f94f900"></script></head>
-<body>
-<center><h1>302 Found</h1></center>
-<hr><center>nginx/1.22.1</center>
-</body>
-</html>
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.'
+  )
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+})

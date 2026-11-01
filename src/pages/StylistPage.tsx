@@ -132,7 +132,7 @@ export function StylistPage() {
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       {/* Results get the full width (outfit + side panel); forms stay narrow and focused. */}
       <div className={clsx(
-        'mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10',
+        'mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8 lg:pt-12 lg:pb-10',
         mode !== 'chat' && pageState === 'result' ? 'max-w-6xl' : 'max-w-2xl'
       )}>
 

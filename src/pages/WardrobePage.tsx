@@ -14,7 +14,6 @@ import type { ShareTarget } from '@/lib/friendService'
 import { Button } from '@/components/ui/Button'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useUserStore } from '@/store/userStore'
-import { useOutfitStore } from '@/store/outfitStore'
 import { usePhotoCleanupStore } from '@/store/photoCleanupStore'
 import { deleteImage } from '@/lib/imageStorage'
 import { deleteWithUndo, notify } from '@/store/undoStore'
@@ -146,22 +145,16 @@ export function WardrobePage() {
   }
 
   const name = profile?.name?.split(' ')[0] ?? 'Your'
-  const savedCount = useOutfitStore((s) => s.savedOutfits.length)
-
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-10 lg:pt-14 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-12 lg:pt-12 pb-6">
           <div>
             <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">
               {name}&apos;s Kloset
             </h1>
-            <p className="text-text-muted text-sm mt-3">
-              {items.length} {items.length === 1 ? 'piece' : 'pieces'}
-              {savedCount > 0 && <> · {savedCount} {savedCount === 1 ? 'outfit' : 'outfits'}</>}
-            </p>
           </div>
 
           {view === 'pieces' && (
@@ -386,8 +379,8 @@ function NoResultsState({ query, category, onClear }: { query: string; category:
 
 function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group text-left">
-      <div className="aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
+    <button onClick={onClick} className="group w-full self-start text-left">
+      <div className="w-full aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
         <span className="w-12 h-12 rounded-full ring-1 ring-text-primary/20 group-hover:bg-text-primary group-hover:text-warm-cream group-hover:ring-text-primary flex items-center justify-center text-text-primary transition-colors duration-300">
           <Plus size={18} strokeWidth={1.25} />
         </span>

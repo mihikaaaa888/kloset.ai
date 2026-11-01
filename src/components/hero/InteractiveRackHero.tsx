@@ -89,12 +89,13 @@ const OUTFITS: RackPiece[] = [
   {
     id: 'olive-eyelet-crop-top',
     name: 'Olive Eyelet Cutout Top',
-    image: '/images/olive-eyelet-crop-top-on-hanger.png',
-    imageAlt: 'Olive green collared crop top with an eyelet-trimmed chest cutout hanging on a wooden hanger',
+    image: '/images/olive-eyelet-crop-top-on-hanger.svg',
+    imageAlt: 'Olive eyelet collared top on a wooden hanger',
     warmWeather: true,
+    pairId: 'olive-eyelet-gathered-skirt',
     detailImage: '/images/olive-eyelet-crop-top-reference.png',
-    detailAlt: 'Olive cropped collared top with an eyelet-trimmed cutout and shaped seams',
-    details: ['Olive short-sleeve cropped top', 'Collared neckline', 'Eyelet-trimmed chest cutout'],
+    detailAlt: 'Olive eyelet top styled with its matching gathered skirt',
+    details: ['Olive eyelet collared top', 'Olive gathered midi skirt with golden hem', 'Gold jewelry and olive accessories'],
   },
   {
     id: 'chartreuse-buckle-wrap-top',
@@ -112,9 +113,10 @@ const OUTFITS: RackPiece[] = [
     image: '/images/olive-gathered-skirt-on-hanger.png',
     imageAlt: 'Olive gathered midi skirt with an asymmetric golden chartreuse hem hanging on a wooden clip hanger',
     warmWeather: true,
+    pairId: 'olive-eyelet-gathered-skirt',
     detailImage: '/images/chartreuse-top-olive-skirt-look-reference.jpg',
-    detailAlt: 'Olive gathered skirt with golden hem paired with a chartreuse buckle-wrap top, sunglasses, gold earrings, olive handbag, and green heels',
-    details: ['Olive gathered midi skirt with golden hem', 'Chartreuse sleeveless buckle-wrap top', 'Brown-tinted sunglasses', 'Gold hoop earrings', 'Olive shoulder bag', 'Olive slingback heels'],
+    detailAlt: 'Olive gathered skirt with golden hem paired with the olive eyelet top and matching accessories',
+    details: ['Olive gathered midi skirt with golden hem', 'Olive eyelet collared top', 'Gold jewelry and olive accessories'],
   },
   {
     id: 'ivory-floral-midi-dress',
@@ -415,6 +417,12 @@ export function InteractiveRackHero({ onRackInteract, immersed = false, sceneRef
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [anchors, setAnchors] = useState<Record<string, HangerAnchor>>({})
   const selectedPiece = pieces.find((piece) => piece.id === selectedId && piece.image)
+  const selectedPair = selectedPiece && (
+    selectedPiece.id === 'olive-eyelet-crop-top' ||
+    selectedPiece.id === 'olive-gathered-contrast-hem-skirt'
+  )
+    ? pieces.find((piece) => piece.pairId === selectedPiece.pairId && piece.id !== selectedPiece.id)
+    : undefined
 
   const trackRef = useRef<HTMLDivElement>(null)
   const gesture = useRef<{ id: string; pointerId: number; startX: number; startY: number; lastX: number; grab: number; moved: boolean } | null>(null)
@@ -694,7 +702,15 @@ export function InteractiveRackHero({ onRackInteract, immersed = false, sceneRef
           <div role="dialog" aria-modal="true" aria-labelledby="outfit-detail-title" className="relative grid max-h-[90svh] w-[min(94vw,52rem)] grid-cols-1 overflow-hidden rounded-3xl border border-[#355f43]/20 bg-[#faf8f1] shadow-[0_24px_80px_rgba(16,20,16,0.3)] sm:grid-cols-2" onClick={(event) => event.stopPropagation()}>
             <button type="button" aria-label="Close outfit details" onClick={() => setSelectedId(null)} className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-[#faf8f1]/90 text-2xl leading-none text-[#243d2c] shadow">×</button>
             <div className="flex min-h-0 items-center justify-center bg-[#f0eee8] p-4 sm:max-h-[90svh]">
-              <img src={selectedPiece.detailImage} alt={selectedPiece.detailAlt ?? `${selectedPiece.name} complete look`} className="max-h-[44svh] w-full object-contain sm:max-h-[78svh]" />
+              {selectedPair ? (
+                <div className="grid w-full grid-cols-2 items-center gap-2">
+                  {[selectedPiece, selectedPair].map((piece) => (
+                    <img key={piece.id} src={piece.image} alt={piece.imageAlt ?? piece.name ?? 'Outfit piece'} className="h-[44svh] w-full object-contain sm:h-[78svh]" />
+                  ))}
+                </div>
+              ) : (
+                <img src={selectedPiece.detailImage} alt={selectedPiece.detailAlt ?? `${selectedPiece.name} complete look`} className="max-h-[44svh] w-full object-contain sm:max-h-[78svh]" />
+              )}
             </div>
             <div className="flex min-h-0 flex-col justify-center overflow-y-auto p-6 sm:p-9">
               <p className="text-xs uppercase tracking-[0.22em] text-[#777364]">Complete look</p>

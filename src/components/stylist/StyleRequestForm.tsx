@@ -159,11 +159,6 @@ export function StyleRequestForm({ onSubmit, isLoading }: StyleRequestFormProps)
             />
           )}
         </Button>
-        {!canSubmit && (
-          <p className="text-xs text-charcoal-400 mt-3">
-            Answer all three questions to generate your outfit
-          </p>
-        )}
       </div>
     </div>
   )
