@@ -23,9 +23,9 @@ type ShopMode = 'piece' | 'complete' | 'rent'
 type Section = 'women' | 'men'
 
 const MODES: { id: ShopMode; label: string; blurb?: string }[] = [
-  { id: 'piece', label: 'New pieces' },
+  { id: 'piece', label: 'Shop' },
   { id: 'complete', label: 'Complete a piece', blurb: 'Pick something you own, or upload a photo — we’ll find what goes with it.' },
-  { id: 'rent', label: 'Rent', blurb: 'Occasion and investment pieces you can rent by the week.' },
+  { id: 'rent', label: 'Rent' },
 ]
 
 const CATEGORY_FILTERS: { value: ClothingCategory | 'all'; label: string }[] = [
@@ -81,8 +81,7 @@ export function DiscoverPage() {
   }
 
   const activeMode = MODES.find((m) => m.id === mode)!
-  const resultCount = pieces.length
-  const isEmpty = resultCount === 0
+  const isEmpty = pieces.length === 0
   // New pieces open with the best matches for this user; everything else follows.
   const suggested = mode === 'piece' ? pieces.slice(0, SUGGESTED_COUNT) : []
   const rest = mode === 'piece' ? pieces.slice(SUGGESTED_COUNT) : pieces
@@ -134,13 +133,13 @@ export function DiscoverPage() {
               </button>
             ))}
           </nav>
-          <div className="self-end sm:self-auto">
-            <BudgetDropdown value={budget} onChange={setBudget} mode={mode === 'rent' ? 'rent' : 'buy'} />
-          </div>
+          {mode !== 'rent' && <div className="self-end sm:self-auto">
+            <BudgetDropdown value={budget} onChange={setBudget} mode="buy" />
+          </div>}
         </div>
 
         {/* ── Women / Men ── */}
-        {mode !== 'complete' && (
+        {mode === 'piece' && (
           <div className="flex gap-6 pt-5" role="group" aria-label="Shop section">
             {(['women', 'men'] as Section[]).map((sec) => (
               <button
@@ -156,7 +155,7 @@ export function DiscoverPage() {
         )}
 
         {/* ── Category (new pieces + rentals) ── */}
-        {mode !== 'complete' && (
+        {mode === 'piece' && (
           <div className="flex gap-6 overflow-x-auto no-scrollbar pt-5">
             {CATEGORY_FILTERS.map((f) => (
               <button
@@ -170,14 +169,12 @@ export function DiscoverPage() {
           </div>
         )}
 
-        {mode !== 'complete' && (
-          <p className="text-2xs uppercase tracking-widest text-text-muted pt-5 pb-6">
-            {resultCount} {resultCount === 1 ? 'piece' : 'pieces'}
-          </p>
-        )}
-
         {/* ── Results ── */}
-        {mode === 'complete' ? (
+        {mode === 'rent' ? (
+          <div className="py-24 text-center">
+            <p className="font-display text-3xl text-text-primary">Coming soon</p>
+          </div>
+        ) : mode === 'complete' ? (
           <div className="pt-10">
             <CompleteAPiece
               budget={budget}

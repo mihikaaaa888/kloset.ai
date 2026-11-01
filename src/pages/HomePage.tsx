@@ -1,10 +1,11 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shirt, Heart, Plus, ArrowRight } from 'lucide-react'
-import { clsx } from 'clsx'
+import { Shirt, Heart, Plus, ArrowRight, CloudSun, Sparkles } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useItemImage } from '@/hooks/useItemImage'
 import type { ClothingItem } from '@/types'
+import { generateOutfit, type WeatherCondition } from '@/lib/stylist'
 
 function getGreeting(name: string): { time: string; lead: string; name: string; end: string } {
   const hour = new Date().getHours()
@@ -22,10 +23,6 @@ export function HomePage() {
 
   const greeting = getGreeting(profile?.name ?? '')
 
-  const recent = [...items]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 4)
-
   const favourites = items.filter((i) => i.isFavourite).slice(0, 4)
 
   return (
@@ -39,45 +36,16 @@ export function HomePage() {
             {greeting.name && <em className="italic text-butter-yellow">{greeting.name}</em>}
             {greeting.end}
           </h1>
-          {items.length > 0 && (
-            <p className="text-2xs uppercase tracking-widest text-text-muted mt-6">
-              {items.length} pieces in your Kloset
-              {favourites.length > 0 && ` · ${favourites.length} favourited`}
-            </p>
-          )}
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
 
-        {/* ── Quick actions — editorial numbered row, no cards ── */}
-        <nav className="grid grid-cols-1 sm:grid-cols-3 -mt-8 lg:-mt-10 mb-20 shadow-lifted" aria-label="Get styled">
-          <QuickAction
-            index="01"
-            tone="cream"
-            title="Style my wardrobe"
-            subtitle="An outfit from what you already own."
-            onClick={() => navigate('/stylist', { state: { mode: 'wardrobe' } })}
-            disabled={items.length < 2}
-            disabledHint="Add 2+ pieces first"
-          />
-          <QuickAction
-            index="02"
-            tone="sage"
-            title="Style an item"
-            subtitle="A full look around one piece."
-            onClick={() => navigate('/stylist', { state: { mode: 'item' } })}
-            disabled={items.length === 0}
-            disabledHint="Add a piece first"
-          />
-          <QuickAction
-            index="03"
-            tone="forest"
-            title="Chat with Kaia"
-            subtitle="Ask your stylist anything."
-            onClick={() => navigate('/stylist', { state: { mode: 'chat' } })}
-          />
-        </nav>
+        <DailyOutfitCard
+          items={items}
+          profile={profile}
+          onOpenStylist={() => navigate('/stylist', { state: { mode: 'wardrobe' } })}
+        />
 
         {/* ── Wardrobe empty state ── */}
         {items.length === 0 && (
@@ -89,16 +57,6 @@ export function HomePage() {
             <button onClick={() => navigate('/wardrobe')} className="text-tab text-tab-active sm:text-sm">
               <Plus size={13} /> Add your first piece
             </button>
-          </section>
-        )}
-
-        {/* ── Recent additions ── */}
-        {recent.length > 0 && (
-          <section className="mb-20">
-            <SectionHeader title="Recently added" action={{ label: 'View all', onClick: () => navigate('/wardrobe') }} />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-8">
-              {recent.map((item) => <WardrobeThumb key={item.id} item={item} onClick={() => navigate('/wardrobe')} />)}
-            </div>
           </section>
         )}
 
@@ -138,49 +96,148 @@ export function HomePage() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const ACTION_TONES = {
-  cream: { panel: 'bg-dark-purple hover:bg-deep-purple', index: 'text-butter-yellow', title: 'text-text-primary', sub: 'text-text-muted', cta: 'text-butter-yellow' },
-  sage: { panel: 'bg-soft-butter hover:bg-butter-yellow', index: 'text-dark-purple/70', title: 'text-dark-purple', sub: 'text-dark-purple/75', cta: 'text-dark-purple' },
-  forest: { panel: 'bg-butter-yellow hover:bg-soft-butter', index: 'text-deep-purple/70', title: 'text-dark-purple', sub: 'text-dark-purple/70', cta: 'text-deep-purple' },
-} as const
+type CurrentWeather = { temperature: number; label: string; condition: WeatherCondition; dateKey: string }
 
-/** Square colour-block panel — a numbered editorial tile, no rounded card. */
-function QuickAction({
-  index,
-  tone,
-  title,
-  subtitle,
-  onClick,
-  disabled,
-  disabledHint,
+function dailyWeatherCondition(temperature: number, code: number): WeatherCondition {
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) return 'rainy'
+  if (temperature >= 30) return 'hot'
+  if (temperature >= 23) return 'warm'
+  if (temperature >= 14) return 'cool'
+  return 'cold'
+}
+
+function weatherDescription(code: number): string {
+  if (code === 0) return 'Clear sky'
+  if (code === 1) return 'Mostly clear'
+  if (code === 2) return 'Partly cloudy'
+  if (code === 3) return 'Overcast'
+  if (code === 45 || code === 48) return 'Foggy'
+  if (code >= 51 && code <= 57) return 'Drizzle'
+  if (code >= 61 && code <= 67) return 'Rain'
+  if (code >= 71 && code <= 77) return 'Snow'
+  if (code >= 80 && code <= 82) return 'Rain showers'
+  if (code === 85 || code === 86) return 'Snow showers'
+  if (code >= 95) return 'Thunderstorm'
+  return 'Current conditions'
+}
+
+function DailyOutfitCard({
+  items,
+  profile,
+  onOpenStylist,
 }: {
-  index: string
-  tone: keyof typeof ACTION_TONES
-  title: string
-  subtitle: string
-  onClick: () => void
-  disabled?: boolean
-  disabledHint?: string
+  items: ClothingItem[]
+  profile: Parameters<typeof generateOutfit>[2]
+  onOpenStylist: () => void
 }) {
-  const t = ACTION_TONES[tone]
+  const [weather, setWeather] = useState<CurrentWeather | null>(null)
+  const [weatherError, setWeatherError] = useState(false)
+  const [recommendation, setRecommendation] = useState<string[] | null>(null)
+  const [recommendationLoading, setRecommendationLoading] = useState(false)
+  const [today, setToday] = useState(() => new Date())
+  const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(today)
+
+  useEffect(() => {
+    const now = new Date()
+    const nextLocalDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const timer = window.setTimeout(() => setToday(new Date()), nextLocalDay.getTime() - now.getTime() + 50)
+    return () => window.clearTimeout(timer)
+  }, [today.getDate(), today.getMonth(), today.getFullYear()])
+
+  useEffect(() => {
+    const weatherDateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    setWeather(null)
+    setWeatherError(false)
+    if (!navigator.geolocation) {
+      setWeatherError(true)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      try {
+        const params = new URLSearchParams({
+          latitude: String(coords.latitude),
+          longitude: String(coords.longitude),
+          current: 'temperature_2m,weather_code',
+          timezone: 'auto',
+        })
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+        if (!response.ok) throw new Error('Weather request failed')
+        const data = await response.json() as { current?: { temperature_2m?: number; weather_code?: number } }
+        const temperature = data.current?.temperature_2m
+        const code = data.current?.weather_code
+        if (temperature === undefined || code === undefined) throw new Error('Weather data unavailable')
+        setWeather({ temperature, label: weatherDescription(code), condition: dailyWeatherCondition(temperature, code), dateKey: weatherDateKey })
+      } catch {
+        setWeatherError(true)
+      }
+    }, () => setWeatherError(true), { timeout: 12000, maximumAge: 30 * 60 * 1000 })
+  }, [today.getDate(), today.getMonth(), today.getFullYear()])
+
+  useEffect(() => {
+    const dayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (!weather || weather.dateKey !== dayKey || items.length < 2) return
+    let cancelled = false
+    const wardrobeKey = items.map((item) => item.id).sort().join(',')
+    const cacheKey = `kloset:daily-outfit:${profile?.name ?? 'guest'}:${dayKey}:${wardrobeKey}`
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const cachedNames = JSON.parse(cached) as string[]
+        if (Array.isArray(cachedNames) && cachedNames.every((name) => typeof name === 'string')) {
+          setRecommendation(cachedNames)
+          setRecommendationLoading(false)
+          return
+        }
+      }
+    } catch {
+      // Continue with a fresh recommendation if local storage is unavailable.
+    }
+
+    setRecommendationLoading(true)
+    const dailyAttempt = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 86400000)
+    void generateOutfit({ occasion: 'casual', weather: weather.condition, mood: 'relaxed' }, items, profile, dailyAttempt)
+      .then(({ suggestion }) => {
+        if (cancelled) return
+        const names = suggestion?.items.map(({ item }) => item.name) ?? []
+        setRecommendation(names)
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(names))
+        } catch {
+          // The daily seed still keeps the recommendation stable within this date.
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRecommendationLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [weather, items, profile, today.getDate(), today.getMonth(), today.getFullYear()])
+
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={clsx(
-        'group text-left p-8 lg:p-10 min-h-[15rem] flex flex-col transition-colors duration-300',
-        t.panel,
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-      )}
-    >
-      <span className={clsx('font-display italic text-3xl', t.index)}>{index}</span>
-      <span className={clsx('block font-display text-3xl lg:text-4xl font-medium leading-tight mt-auto', t.title)}>{title}</span>
-      <span className={clsx('block text-sm mt-2', t.sub)}>{disabled && disabledHint ? disabledHint : subtitle}</span>
-      <span className={clsx('mt-6 inline-flex items-center gap-2 text-2xs uppercase tracking-widest font-semibold', t.cta)}>
-        Start
-        <ArrowRight size={13} className="transition-transform duration-300 group-hover:translate-x-1" />
-      </span>
-    </button>
+    <section className="-mt-8 lg:-mt-10 mb-16 lg:mb-20 overflow-hidden bg-dark-purple text-text-primary shadow-lifted" aria-labelledby="daily-outfit-title">
+      <div className="grid lg:grid-cols-[1fr_auto]">
+        <div className="p-7 sm:p-9 lg:p-12">
+          <p className="text-2xs uppercase tracking-ultra-wide text-butter-yellow font-medium">{dateLabel}</p>
+          <h2 id="daily-outfit-title" className="mt-5 font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-tight">
+            Today’s outfit <em className="italic text-butter-yellow">recommendation</em>
+          </h2>
+          <div className="mt-5 flex items-center gap-2 text-sm text-text-muted" aria-live="polite">
+            <CloudSun size={18} className="text-butter-yellow" />
+            {weather ? <span>{weather.label} · {Math.round(weather.temperature)}°C</span> : weatherError ? <span>Weather unavailable — allow location access to see local conditions.</span> : <span>Checking today’s weather…</span>}
+          </div>
+          {weather && (
+          <div className="mt-7" aria-live="polite">
+              <p className="text-sm text-text-muted">{recommendationLoading ? 'Putting together a look from your Kloset…' : recommendation?.length ? 'A look picked for today, from pieces you own:' : items.length < 2 ? 'Add at least two pieces to your Kloset for a personal outfit recommendation.' : 'Your stylist can put together a fresh look for today.'}</p>
+              {recommendation?.length ? <p className="mt-2 text-base font-medium">{recommendation.join(' · ')}</p> : null}
+            </div>
+          )}
+        </div>
+        <button onClick={onOpenStylist} className="group flex min-h-24 items-center justify-between gap-5 bg-butter-yellow px-7 py-6 text-left text-dark-purple transition-colors hover:bg-soft-butter sm:px-9 lg:min-h-full lg:w-64 lg:flex-col lg:items-start lg:justify-end lg:p-9" aria-label="Go to AI Stylist">
+          <span className="flex items-center gap-2 text-2xs uppercase tracking-widest font-semibold"><Sparkles size={14} /> AI Stylist</span>
+          <span className="inline-flex items-center gap-2 text-sm font-medium">Go to stylist <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span>
+        </button>
+      </div>
+    </section>
   )
 }
 
