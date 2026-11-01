@@ -17,6 +17,7 @@ import type { Outfit } from '@/types'
 /** Saved looks, named outfit collections, and recoverable deleted looks. */
 export function MyOutfits() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { savedOutfits, trashedOutfits, saveOutfit, trashOutfit, restoreOutfit, permanentlyDeleteOutfit } = useOutfitStore()
   const { collections, activeCollectionId, addOutfits, removeOutfit } = useKlosetStore()
   const wardrobeItems = useWardrobeStore((s) => s.items)
@@ -26,14 +27,16 @@ export function MyOutfits() {
   const [creating, setCreating] = useState(false)
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
   const showRecycleBin = searchParams.get('recycle') === '1'
-  const setShowRecycleBin = (show: boolean) => {
-    const next = new URLSearchParams(searchParams)
-    if (show) next.set('recycle', '1')
-    else next.delete('recycle')
-    setSearchParams(next, { replace: true })
+  const clearRecycleBinView = () => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('recycle')
+    setSearchParams(nextParams, { replace: true })
   }
+  const [showNewKloset, setShowNewKloset] = useState(false)
+  const [newKlosetName, setNewKlosetName] = useState('')
   const [showAddFromMain, setShowAddFromMain] = useState(false)
   const [pickedOutfitIds, setPickedOutfitIds] = useState<string[]>([])
+
   const activeCollection = collections.find((collection) => collection.id === activeCollectionId) ?? collections[0]
   const isMain = activeCollection.id === 'main'
 
@@ -96,8 +99,18 @@ export function MyOutfits() {
   const handleCreate = (outfit: Outfit) => {
     saveOutfit(outfit)
     if (!isMain) addOutfits(activeCollection.id, [outfit.id])
-    setShowRecycleBin(false)
+    clearRecycleBinView()
     setCreating(false)
+  }
+
+  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const created = createCollection(newKlosetName)
+    if (created) {
+      setNewKlosetName('')
+      setShowNewKloset(false)
+      clearRecycleBinView()
+    }
   }
 
   const togglePickedOutfit = (id: string) => {
@@ -114,12 +127,46 @@ export function MyOutfits() {
     <>
       <div className="mb-8 border-b border-text-primary/10 pb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <label htmlFor="kloset-collection" className="mb-2 block text-2xs font-medium uppercase tracking-widest text-text-muted">Your klosets</label>
+            <select
+              id="kloset-collection"
+              value={activeCollection.id}
+              onChange={(event) => { selectCollection(event.target.value); clearRecycleBinView() }}
+              className="min-w-56 border-b border-text-primary/25 bg-transparent py-2 pr-8 font-display text-2xl text-text-primary focus:border-text-primary focus:outline-none"
+            >
+              {collections.map((collection) => (
+                <option key={collection.id} value={collection.id}>{collection.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!showRecycleBin && !isMain && <button
+              onClick={() => { setPickedOutfitIds([]); setShowAddFromMain(true) }}
+              className="h-10 px-4 ring-1 ring-inset ring-text-primary/20 text-2xs font-medium uppercase tracking-widest text-text-primary hover:ring-text-primary/50"
+            >
+              Add from Main
+            </button>}
+            <button
+              onClick={() => { setShowNewKloset((current) => !current); clearRecycleBinView() }}
+              className="h-10 px-4 flex items-center gap-2 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest hover:bg-text-primary/90"
+            >
+              <Plus size={14} /> New Kloset
+            </button>
+            {!isMain && <button
+              onClick={deleteActiveCollection}
+              className="h-10 px-4 ring-1 ring-inset ring-red-800/20 text-2xs font-medium uppercase tracking-widest text-red-800 hover:ring-red-800/50"
+            >
+              Delete Kloset
+            </button>}
+          </div>
         </div>
 
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-text-muted">
             {showRecycleBin
-              ? `${trashedOutfits.length} deleted ${trashedOutfits.length === 1 ? 'outfit' : 'outfits'} · restore any look to Main Kloset.`
+              ? `${trashedOutfits.length} deleted ${trashedOutfits.length === 1 ? 'outfit' : 'outfits'} · items are permanently deleted after 30 days.`
               : isMain
                 ? `${savedOutfits.length} ${savedOutfits.length === 1 ? 'outfit' : 'outfits'} in your main collection.`
                 : `${currentOutfits.length} ${currentOutfits.length === 1 ? 'outfit' : 'outfits'} in ${activeCollection.name}. Added looks stay in Main Kloset too.`}
@@ -139,7 +186,7 @@ export function MyOutfits() {
         <div className="py-20 flex flex-col items-center text-center px-4">
           {showRecycleBin ? <>
             <h2 className="font-display text-3xl text-text-primary mb-3">Recycle bin is empty</h2>
-            <p className="text-text-muted text-sm max-w-sm leading-relaxed">Outfits you remove from Main Kloset will stay here until you restore or permanently delete them.</p>
+            <p className="text-text-muted text-sm max-w-sm leading-relaxed">Deleted outfits stay here for 30 days, then they’re permanently removed.</p>
           </> : !isMain ? <>
             <h2 className="font-display text-3xl text-text-primary mb-3">Nothing in {activeCollection.name} yet</h2>
             <p className="text-text-muted text-sm max-w-sm leading-relaxed mb-8">Add saved looks from Main Kloset. They’ll appear here while staying in your main collection.</p>

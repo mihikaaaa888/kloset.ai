@@ -171,6 +171,8 @@ export interface Outfit {
   whyItWorks: string
   generatedAt: string
   savedAt?: string
+  /** Timestamp set when the outfit enters the recycle bin. */
+  trashedAt?: string
   isSaved: boolean
   source: 'ai-mock' | 'ai-api' | 'manual'
 }

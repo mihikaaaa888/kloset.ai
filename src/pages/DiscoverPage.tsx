@@ -80,6 +80,7 @@ export function DiscoverPage() {
     }
   }
 
+  const activeMode = MODES.find((m) => m.id === mode)!
   const isEmpty = pieces.length === 0
   // New pieces open with the best matches for this user; everything else follows.
   const suggested = mode === 'piece' ? pieces.slice(0, SUGGESTED_COUNT) : []
@@ -100,7 +101,7 @@ export function DiscoverPage() {
   )
 
   return (
-    <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
+    <div className="min-h-screen bg-warm-cream pt-28 lg:pt-32 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ── Toolbar: mode tabs + budget ── */}
@@ -184,7 +185,7 @@ export function DiscoverPage() {
           </div>
         ) : suggested.length > 0 ? (
           <>
-            <section aria-labelledby="shop-suggested">
+            <section aria-labelledby="shop-suggested" className="pt-3">
               <div className="mb-6">
                 <h2 id="shop-suggested" className="font-display text-2xl lg:text-3xl text-text-primary">Suggested for you</h2>
               </div>

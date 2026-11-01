@@ -1,55 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shirt, Heart, Plus, CloudSun } from 'lucide-react'
+import { Shirt, Heart, Plus, ArrowRight, Sparkles, Cloud, CloudDrizzle, CloudLightning, CloudOff, CloudRain, CloudSnow, CloudSun, Sun, type LucideIcon } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useItemImage } from '@/hooks/useItemImage'
 import type { ClothingItem } from '@/types'
 import { generateOutfit, type WeatherCondition } from '@/lib/stylist'
 
-function getGreeting(name: string): { time: string; lead: string; name: string; end: string } {
-  const hour = new Date().getHours()
-  const first = name.split(' ')[0]
-  const sep = first ? ', ' : ''
-  if (hour < 12) return { time: 'Good morning', lead: `What are we wearing today${sep}`, name: first, end: '?' }
-  if (hour < 17) return { time: 'Good afternoon', lead: `Ready to put together a look${sep}`, name: first, end: '?' }
-  return { time: 'Good evening', lead: `Let's plan tonight's outfit${sep}`, name: first, end: '.' }
-}
-
 export function HomePage() {
   const navigate = useNavigate()
   const profile = useUserStore((s) => s.profile)
   const items = useWardrobeStore((s) => s.items)
 
-  const greeting = getGreeting(profile?.name ?? '')
-
   const favourites = items.filter((i) => i.isFavourite).slice(0, 4)
 
   return (
-    <div className="min-h-screen bg-warm-cream pt-40 lg:pt-44 pb-24 md:pb-0">
-      {/* ── Greeting — full-bleed yellow band ── */}
-      <header className="bg-deep-purple">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-14 pb-16 lg:pt-20 lg:pb-24">
-          <p className="text-2xs uppercase tracking-ultra-wide text-butter-yellow font-medium mb-4">{greeting.time}</p>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-medium text-text-primary leading-[1.02] max-w-4xl">
-            {greeting.lead}
-            {greeting.name && <em className="italic text-butter-yellow">{greeting.name}</em>}
-            {greeting.end}
-          </h1>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-warm-cream pt-28 lg:pt-32 pb-24 md:pb-0">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
 
         <DailyOutfitCard
           items={items}
           profile={profile}
+          onAskStylist={() => navigate('/stylist', { state: { mode: 'wardrobe' } })}
         />
-        <div className="mb-16 lg:mb-20">
-          <button onClick={() => navigate('/stylist', { state: { mode: 'wardrobe' } })} className="text-tab text-tab-active">
-            Ask stylist
-          </button>
-        </div>
 
         {/* ── Wardrobe empty state ── */}
         {items.length === 0 && (
@@ -82,7 +55,7 @@ export function HomePage() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-type CurrentWeather = { temperature: number; label: string; condition: WeatherCondition; dateKey: string }
+type CurrentWeather = { temperature: number; label: string; condition: WeatherCondition; code: number; dateKey: string }
 
 function dailyWeatherCondition(temperature: number, code: number): WeatherCondition {
   if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) return 'rainy'
@@ -107,9 +80,21 @@ function weatherDescription(code: number): string {
   return 'Current conditions'
 }
 
-function DailyOutfitCard({ items, profile }: {
+function weatherIcon(code: number): LucideIcon {
+  if (code <= 1) return Sun
+  if (code === 2) return CloudSun
+  if (code === 3 || code === 45 || code === 48) return Cloud
+  if (code >= 51 && code <= 57) return CloudDrizzle
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return CloudRain
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return CloudSnow
+  if (code >= 95) return CloudLightning
+  return CloudSun
+}
+
+function DailyOutfitCard({ items, profile, onAskStylist }: {
   items: ClothingItem[]
   profile: Parameters<typeof generateOutfit>[2]
+  onAskStylist: () => void
 }) {
   const [weather, setWeather] = useState<CurrentWeather | null>(null)
   const [weatherError, setWeatherError] = useState(false)
@@ -117,6 +102,16 @@ function DailyOutfitCard({ items, profile }: {
   const [recommendationLoading, setRecommendationLoading] = useState(false)
   const [today, setToday] = useState(() => new Date())
   const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(today)
+  const recommendedItems = recommendation?.length
+    ? items.filter((item) => recommendation.includes(item.id))
+    : []
+  const stylingTips = [
+    'Pair a relaxed top with high-waisted bottoms and add a slim belt to define the waist.',
+    'Add colorful bangles for a cheerful pop; repeat one shade in your bag or shoes.',
+    recommendedItems.some((item) => item.category === 'outerwear')
+      ? 'Push the outerwear sleeves up slightly so a watch or bangle stack can show.'
+      : 'Layer two slim bangles with a watch for an easy, polished finish.',
+  ]
 
   useEffect(() => {
     const now = new Date()
@@ -148,7 +143,7 @@ function DailyOutfitCard({ items, profile }: {
         const temperature = data.current?.temperature_2m
         const code = data.current?.weather_code
         if (temperature === undefined || code === undefined) throw new Error('Weather data unavailable')
-        setWeather({ temperature, label: weatherDescription(code), condition: dailyWeatherCondition(temperature, code), dateKey: weatherDateKey })
+        setWeather({ temperature, label: weatherDescription(code), condition: dailyWeatherCondition(temperature, code), code, dateKey: weatherDateKey })
       } catch {
         setWeatherError(true)
       }
@@ -157,16 +152,16 @@ function DailyOutfitCard({ items, profile }: {
 
   useEffect(() => {
     const dayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    if (!weather || weather.dateKey !== dayKey || items.length < 2) return
+    if ((!weather && !weatherError) || (weather && weather.dateKey !== dayKey) || items.length < 2) return
     let cancelled = false
     const wardrobeKey = items.map((item) => item.id).sort().join(',')
-    const cacheKey = `kloset:daily-outfit:${profile?.name ?? 'guest'}:${dayKey}:${wardrobeKey}`
+    const cacheKey = `kloset:daily-outfit:v2:${profile?.name ?? 'guest'}:${dayKey}:${wardrobeKey}`
     try {
       const cached = localStorage.getItem(cacheKey)
       if (cached) {
-        const cachedNames = JSON.parse(cached) as string[]
-        if (Array.isArray(cachedNames) && cachedNames.every((name) => typeof name === 'string')) {
-          setRecommendation(cachedNames)
+        const cachedIds = JSON.parse(cached) as string[]
+        if (Array.isArray(cachedIds) && cachedIds.every((id) => typeof id === 'string')) {
+          setRecommendation(cachedIds)
           setRecommendationLoading(false)
           return
         }
@@ -177,48 +172,73 @@ function DailyOutfitCard({ items, profile }: {
 
     setRecommendationLoading(true)
     const dailyAttempt = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 86400000)
-    void generateOutfit({ occasion: 'casual', weather: weather.condition, mood: 'relaxed' }, items, profile, dailyAttempt)
+    void generateOutfit({ occasion: 'casual', weather: weather?.condition ?? 'warm', mood: 'relaxed' }, items, profile, dailyAttempt)
       .then(({ suggestion }) => {
         if (cancelled) return
-        const names = suggestion?.items.map(({ item }) => item.name) ?? []
-        setRecommendation(names)
+        const itemIds = suggestion?.items.map(({ item }) => item.id) ?? []
+        setRecommendation(itemIds)
         try {
-          localStorage.setItem(cacheKey, JSON.stringify(names))
+          localStorage.setItem(cacheKey, JSON.stringify(itemIds))
         } catch {
           // The daily seed still keeps the recommendation stable within this date.
         }
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendation([])
       })
       .finally(() => {
         if (!cancelled) setRecommendationLoading(false)
       })
     return () => { cancelled = true }
-  }, [weather, items, profile, today.getDate(), today.getMonth(), today.getFullYear()])
+  }, [weather, weatherError, items, profile, today.getDate(), today.getMonth(), today.getFullYear()])
 
   return (
     <section className="mb-16 lg:mb-20" aria-labelledby="daily-outfit-title">
-      <div className="grid lg:grid-cols-[1fr_auto] lg:items-stretch">
-        <div className="py-8 sm:py-10 lg:py-12 lg:pr-12">
-          <p className="text-2xs uppercase tracking-ultra-wide text-text-muted font-medium">{dateLabel}</p>
-          <h2 id="daily-outfit-title" className="mt-5 font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-tight text-text-primary">
-            Today’s outfit <em className="italic text-butter-yellow">recommendation</em>
-          </h2>
-          <div className="mt-5 flex items-center gap-2 text-sm text-text-muted" aria-live="polite">
-            <CloudSun size={18} className="text-deep-purple" />
-            {weather ? <span>{weather.label} · {Math.round(weather.temperature)}°C</span> : weatherError ? <span>Weather unavailable — allow location access to see local conditions.</span> : <span>Checking today’s weather…</span>}
-          </div>
-          {weather && (
-            <div className="mt-7" aria-live="polite">
-              {!recommendation?.length && <p className="text-sm text-text-muted">{recommendationLoading ? 'Putting together a look from your Kloset…' : items.length < 2 ? 'Add at least two pieces to your Kloset for a personal outfit recommendation.' : 'Your stylist can put together a fresh look for today.'}</p>}
-              {recommendation?.length ? (
-                <div className="mt-4 flex flex-wrap gap-4">
-                  {items.filter((item) => recommendation.includes(item.name)).map((item) => (
-                    <RecommendationPiece key={item.id} item={item} />
-                  ))}
-                </div>
-              ) : null}
+      <h2 id="daily-outfit-title" className="m-0 text-left font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-tight text-text-primary">
+        Today’s outfit <em className="italic text-butter-yellow">recommendation</em>
+      </h2>
+      <p className="mt-4 ml-0 text-left text-2xs uppercase tracking-ultra-wide text-text-muted">{dateLabel}</p>
+      <div className="mt-3 ml-0 flex items-center gap-2 text-left text-sm text-text-muted" aria-live="polite">
+        {weather ? (() => {
+          const Icon = weatherIcon(weather.code)
+          return <><Icon size={18} className="text-deep-purple" /><span>{weather.label} · {Math.round(weather.temperature)}°C</span></>
+        })() : <><CloudOff size={18} className="text-deep-purple" /><span>{weatherError ? 'Weather unavailable — allow location access to see local conditions.' : 'Checking today’s weather…'}</span></>}
+      </div>
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(17rem,18rem)_minmax(18rem,20rem)_minmax(0,1fr)] lg:gap-x-12 lg:gap-y-0">
+        <div aria-live="polite">
+          {recommendedItems.length ? (
+            <div className={`grid gap-4 ${recommendedItems.length === 1 ? 'max-w-sm grid-cols-1' : 'grid-cols-2'}`}>
+              {recommendedItems.map((item) => <RecommendationPiece key={item.id} item={item} />)}
             </div>
+          ) : items.length < 2 ? (
+            <p className="text-sm text-text-muted">Add at least two pieces to your Kloset for a personal outfit recommendation.</p>
+          ) : recommendationLoading || (!weather && !weatherError) ? (
+            <p className="text-sm text-text-muted">Putting together today’s look from your Kloset…</p>
+          ) : (
+            <p className="text-sm text-text-muted">Add a top and bottom, or a dress, for a complete outfit recommendation.</p>
           )}
         </div>
+        <aside className="min-h-[22rem] border border-text-primary/10 bg-surface p-5 sm:p-6" aria-labelledby="styling-tips-title">
+          <div className="mb-4 flex items-center gap-2 text-[#355E3B] dark:text-[#9BC89D]">
+            <Sparkles size={17} aria-hidden="true" />
+            <h3 id="styling-tips-title" className="text-2xs font-semibold uppercase tracking-ultra-wide">Styling tips</h3>
+          </div>
+          <ul className="space-y-4">
+            {stylingTips.map((tip) => (
+              <li key={tip} className="flex gap-3 text-sm leading-relaxed text-text-muted">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-butter-yellow" aria-hidden="true" />
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+        <button
+          onClick={onAskStylist}
+          className="mt-12 flex h-12 w-full items-center justify-between bg-[#355E3B] px-5 text-sm font-medium tracking-wide text-[#FFFDD0] transition-colors hover:bg-[#2B4E31] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#355E3B] lg:col-span-2 lg:w-[calc(100%+5rem)]"
+        >
+          <span>Ask stylist</span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </button>
       </div>
     </section>
   )
@@ -228,11 +248,11 @@ function RecommendationPiece({ item }: { item: ClothingItem }) {
   const imageUrl = useItemImage(item)
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-20 w-16 overflow-hidden bg-cream-200">
-        {imageUrl ? <img src={imageUrl} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Shirt size={20} className="text-text-primary/25" /></div>}
+    <div className="min-w-0">
+      <div className="aspect-[4/5] overflow-hidden bg-surface">
+        {imageUrl ? <img src={imageUrl} alt={item.name} className="h-full w-full object-contain p-3" /> : <div className="flex h-full w-full items-center justify-center"><Shirt size={28} className="text-text-primary/25" /></div>}
       </div>
-      <span className="max-w-32 text-sm font-medium text-text-primary">{item.name}</span>
+      <span className="mt-2 block truncate text-sm font-medium text-text-primary">{item.name}</span>
     </div>
   )
 }

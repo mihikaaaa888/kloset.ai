@@ -5,6 +5,7 @@ import { UndoToast } from '@/components/ui/UndoToast'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { useDataSync } from '@/hooks/useDataSync'
 import { useApplyTheme } from '@/hooks/useTheme'
+import { useOutfitStore } from '@/store/outfitStore'
 import { LandingPage } from '@/pages/LandingPage'
 
 // Everything past the landing page loads on demand, so a first visit to /
@@ -67,6 +68,13 @@ function RedirectIfAuth({ children }: { children: ReactNode }) {
 
 function AppRoutes() {
   useDataSync()
+  const pruneExpiredTrashedOutfits = useOutfitStore((s) => s.pruneExpiredTrashedOutfits)
+
+  useEffect(() => {
+    pruneExpiredTrashedOutfits()
+    const timer = window.setInterval(pruneExpiredTrashedOutfits, 60 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [pruneExpiredTrashedOutfits])
 
   return (
     <>

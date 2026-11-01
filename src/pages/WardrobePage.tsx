@@ -146,34 +146,12 @@ export function WardrobePage() {
   }
 
   const name = profile?.name?.split(' ')[0] ?? 'Your'
-  const collections = useKlosetStore((s) => s.collections)
-  const activeCollectionId = useKlosetStore((s) => s.activeCollectionId)
-  const createCollection = useKlosetStore((s) => s.createCollection)
-  const selectCollection = useKlosetStore((s) => s.selectCollection)
-  const [creatingKloset, setCreatingKloset] = useState(false)
-  const [newKlosetName, setNewKlosetName] = useState('')
-  const mainKlosetName = `${profile?.name?.split(' ')[0] ?? 'My'}'s Kloset`
-
-  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (createCollection(newKlosetName)) {
-      setNewKlosetName('')
-      setCreatingKloset(false)
-      setView('outfits')
-    }
-  }
-
-  const handleSelectKloset = (id: string) => {
-    selectCollection(id)
-    setView(id === 'main' ? 'pieces' : 'outfits')
-  }
-
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-24 lg:pt-24 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-12 lg:pt-12 pb-6">
           <div>
             <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">
               {name}&apos;s Kloset
@@ -434,7 +412,7 @@ function NoResultsState({ query, category, onClear }: { query: string; category:
 
 function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group w-full self-start text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow focus-visible:ring-offset-4 focus-visible:ring-offset-warm-cream">
+    <button onClick={onClick} className="group w-full self-start text-left">
       <div className="w-full aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
         <span className="w-12 h-12 rounded-full ring-1 ring-text-primary/20 group-hover:bg-text-primary group-hover:text-warm-cream group-hover:ring-text-primary flex items-center justify-center text-text-primary transition-colors duration-300">
           <Plus size={18} strokeWidth={1.25} />

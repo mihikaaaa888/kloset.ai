@@ -116,7 +116,7 @@ export function FriendsPage() {
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="pt-24 lg:pt-24 pb-6">
+        <div className="pt-12 lg:pt-12 pb-6">
           <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">Friends</h1>
         </div>
 
