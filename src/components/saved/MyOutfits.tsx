@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Archive, Plus, Sparkles, X } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Plus, Sparkles, X } from 'lucide-react'
 
 import { SavedOutfitCard } from '@/components/saved/SavedOutfitCard'
 import { SavedOutfitDetailModal } from '@/components/saved/SavedOutfitDetailModal'
@@ -18,15 +18,20 @@ import type { Outfit } from '@/types'
 export function MyOutfits() {
   const navigate = useNavigate()
   const { savedOutfits, trashedOutfits, saveOutfit, trashOutfit, restoreOutfit, permanentlyDeleteOutfit } = useOutfitStore()
-  const { collections, activeCollectionId, createCollection, selectCollection, addOutfits, removeOutfit, deleteCollection } = useKlosetStore()
+  const { collections, activeCollectionId, addOutfits, removeOutfit } = useKlosetStore()
   const wardrobeItems = useWardrobeStore((s) => s.items)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null)
   const [creating, setCreating] = useState(false)
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null)
-  const [showRecycleBin, setShowRecycleBin] = useState(false)
-  const [showNewKloset, setShowNewKloset] = useState(false)
-  const [newKlosetName, setNewKlosetName] = useState('')
+  const showRecycleBin = searchParams.get('recycle') === '1'
+  const setShowRecycleBin = (show: boolean) => {
+    const next = new URLSearchParams(searchParams)
+    if (show) next.set('recycle', '1')
+    else next.delete('recycle')
+    setSearchParams(next, { replace: true })
+  }
   const [showAddFromMain, setShowAddFromMain] = useState(false)
   const [pickedOutfitIds, setPickedOutfitIds] = useState<string[]>([])
   const activeCollection = collections.find((collection) => collection.id === activeCollectionId) ?? collections[0]
@@ -88,34 +93,11 @@ export function MyOutfits() {
     }
   }
 
-  const deleteActiveCollection = () => {
-    const collection = activeCollection
-    const index = useKlosetStore.getState().collections.findIndex((c) => c.id === collection.id)
-    deleteWithUndo({
-      message: `Deleted ${collection.name}`,
-      remove: () => deleteCollection(collection.id),
-      restore: () => useKlosetStore.setState((s) => {
-        const rest = s.collections.filter((c) => c.id !== collection.id)
-        return { collections: [...rest.slice(0, index), collection, ...rest.slice(index)], activeCollectionId: collection.id }
-      }),
-    })
-  }
-
   const handleCreate = (outfit: Outfit) => {
     saveOutfit(outfit)
     if (!isMain) addOutfits(activeCollection.id, [outfit.id])
     setShowRecycleBin(false)
     setCreating(false)
-  }
-
-  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const created = createCollection(newKlosetName)
-    if (created) {
-      setNewKlosetName('')
-      setShowNewKloset(false)
-      setShowRecycleBin(false)
-    }
   }
 
   const togglePickedOutfit = (id: string) => {
@@ -132,20 +114,6 @@ export function MyOutfits() {
     <>
       <div className="mb-8 border-b border-text-primary/10 pb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <label htmlFor="kloset-collection" className="mb-2 block text-2xs font-medium uppercase tracking-widest text-text-muted">Your klosets</label>
-            <select
-              id="kloset-collection"
-              value={activeCollection.id}
-              onChange={(event) => { selectCollection(event.target.value); setShowRecycleBin(false) }}
-              className="min-w-56 border-b border-text-primary/25 bg-transparent py-2 pr-8 font-display text-2xl text-text-primary focus:border-text-primary focus:outline-none"
-            >
-              {collections.map((collection) => (
-                <option key={collection.id} value={collection.id}>{collection.name}</option>
-              ))}
-            </select>
-          </div>
-
           <div className="flex flex-wrap items-center gap-2">
             {!showRecycleBin && !isMain && <button
               onClick={() => { setPickedOutfitIds([]); setShowAddFromMain(true) }}
@@ -153,42 +121,8 @@ export function MyOutfits() {
             >
               Add from Main
             </button>}
-            <button
-              onClick={() => { setShowNewKloset((current) => !current); setShowRecycleBin(false) }}
-              className="h-10 px-4 flex items-center gap-2 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest hover:bg-text-primary/90"
-            >
-              <Plus size={14} /> New Kloset
-            </button>
-            {!isMain && <button
-              onClick={deleteActiveCollection}
-              className="h-10 px-4 ring-1 ring-inset ring-red-800/20 text-2xs font-medium uppercase tracking-widest text-red-800 hover:ring-red-800/50"
-            >
-              Delete Kloset
-            </button>}
-            <button
-              onClick={() => { setShowRecycleBin((current) => !current); setShowNewKloset(false) }}
-              aria-pressed={showRecycleBin}
-              className={`h-10 px-4 flex items-center gap-2 ring-1 ring-inset text-2xs font-medium uppercase tracking-widest transition-colors ${showRecycleBin ? 'bg-text-primary text-warm-cream ring-text-primary' : 'ring-text-primary/20 text-text-primary hover:ring-text-primary/50'}`}
-            >
-              <Archive size={14} /> Recycle Bin ({trashedOutfits.length})
-            </button>
           </div>
         </div>
-
-        {showNewKloset && <form onSubmit={handleCreateKloset} className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <input
-            autoFocus
-            required
-            maxLength={40}
-            value={newKlosetName}
-            onChange={(event) => setNewKlosetName(event.target.value)}
-            placeholder="Name this Kloset, e.g. Paris trip"
-            aria-label="New Kloset name"
-            className="min-w-0 flex-1 border-b border-text-primary/25 bg-transparent px-1 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-text-primary focus:outline-none"
-          />
-          <button type="submit" className="h-10 px-5 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest">Create</button>
-          <button type="button" onClick={() => setShowNewKloset(false)} className="h-10 px-3 text-text-muted hover:text-text-primary" aria-label="Cancel creating Kloset"><X size={17} /></button>
-        </form>}
 
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-text-muted">

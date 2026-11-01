@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Check, ArrowUpRight } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import { colourNameToHex, isLightColour } from '@/lib/colourUtils'
 import { CategoryGlyph } from '@/components/wardrobe/categoryVisuals'
 import { formatINR } from '@/lib/shopping'
@@ -17,17 +17,9 @@ export function ShopItemCard({ item, mode, inWardrobe, onAdd }: ShopItemCardProp
   const [imageFailed, setImageFailed] = useState(false)
   const fallbackHex = item.colours[0] ? colourNameToHex(item.colours[0]) : '#EDE9E2'
   const fallbackText = isLightColour(fallbackHex) ? 'text-text-primary/35' : 'text-white/45'
-  const href = mode === 'rent' ? item.rentUrl : item.shopUrl
-
   return (
     <div className="group flex flex-col">
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        onClick={() => { console.log('[shop] open item', { id: item.id, mode }) }}
-        className="relative block aspect-[3/4] overflow-hidden bg-cream-200"
-      >
+      <div className="relative block aspect-[3/4] overflow-hidden bg-cream-200">
         {item.imageUrl && !imageFailed ? (
           <img
             src={item.imageUrl}
@@ -61,7 +53,17 @@ export function ShopItemCard({ item, mode, inWardrobe, onAdd }: ShopItemCardProp
             In your Kloset
           </span>
         )}
-      </a>
+        <button
+          type="button"
+          onClick={() => !inWardrobe && onAdd()}
+          disabled={inWardrobe}
+          aria-label={inWardrobe ? `${item.name} is already in your Kloset` : `Add ${item.name} to Kloset`}
+          title={inWardrobe ? 'Already in your Kloset' : 'Add to Kloset'}
+          className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-warm-cream text-text-primary shadow-medium opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto hover:bg-text-primary hover:text-warm-cream disabled:cursor-default disabled:hover:bg-warm-cream disabled:hover:text-text-primary"
+        >
+          {inWardrobe ? <Check size={18} /> : <Plus size={20} />}
+        </button>
+      </div>
 
       <div className="pt-3 flex flex-col gap-1">
         <p className="text-sm text-text-primary leading-snug">{item.name}</p>
@@ -73,26 +75,6 @@ export function ShopItemCard({ item, mode, inWardrobe, onAdd }: ShopItemCardProp
           )}
         </p>
 
-        <div className="flex items-center gap-5">
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 py-3 text-2xs uppercase tracking-widest text-butter-yellow font-semibold hover:underline underline-offset-4"
-          >
-            {mode === 'rent' ? 'Rent' : 'Buy'}
-            <ArrowUpRight size={12} />
-          </a>
-          <button
-            type="button"
-            onClick={() => !inWardrobe && onAdd()}
-            disabled={inWardrobe}
-            className="flex items-center gap-1 py-3 text-2xs uppercase tracking-widest text-text-muted hover:text-text-primary disabled:text-text-muted/50 disabled:cursor-default transition-colors"
-          >
-            {inWardrobe ? <Check size={12} /> : <Plus size={12} />}
-            {inWardrobe ? 'Added' : 'Add to Kloset'}
-          </button>
-        </div>
       </div>
     </div>
   )

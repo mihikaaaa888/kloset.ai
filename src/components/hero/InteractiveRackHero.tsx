@@ -88,13 +88,14 @@ const OUTFITS: RackPiece[] = [
   },
   {
     id: 'olive-eyelet-crop-top',
+    pairId: 'olive-eyelet-top-gathered-skirt',
     name: 'Olive Eyelet Cutout Top',
     image: '/images/olive-eyelet-crop-top-on-hanger.png',
     imageAlt: 'Olive green collared crop top with an eyelet-trimmed chest cutout hanging on a wooden hanger',
     warmWeather: true,
-    detailImage: '/images/olive-eyelet-crop-top-reference.png',
-    detailAlt: 'Olive cropped collared top with an eyelet-trimmed cutout and shaped seams',
-    details: ['Olive short-sleeve cropped top', 'Collared neckline', 'Eyelet-trimmed chest cutout'],
+    detailImage: '/images/chartreuse-top-olive-skirt-look-reference.jpg',
+    detailAlt: 'Green top paired with an olive gathered skirt with a gold hem and coordinated accessories',
+    details: ['Olive eyelet cutout top', 'Olive gathered midi skirt with golden hem', 'Brown-tinted sunglasses', 'Gold hoop earrings', 'Olive shoulder bag', 'Green slingback heels'],
   },
   {
     id: 'chartreuse-buckle-wrap-top',
@@ -108,6 +109,7 @@ const OUTFITS: RackPiece[] = [
   },
   {
     id: 'olive-gathered-contrast-hem-skirt',
+    pairId: 'olive-eyelet-top-gathered-skirt',
     name: 'Olive Gathered Skirt with Gold Hem',
     image: '/images/olive-gathered-skirt-on-hanger.png',
     imageAlt: 'Olive gathered midi skirt with an asymmetric golden chartreuse hem hanging on a wooden clip hanger',
