@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { Home, Shirt, User, Menu, X, Compass, Users } from 'lucide-react'
 import { HangerIcon } from '@/components/ui/HangerIcon'
+import { ThemeToggleButton } from '@/components/ui/ThemeToggle'
 import { useUserStore } from '@/store/userStore'
 import { useAuth } from '@/contexts/AuthContext'
 import { countFriendActivity, FRIENDS_CHANGED_EVENT } from '@/lib/friendService'
@@ -105,6 +106,8 @@ export function Navigation() {
                 )
               })}
 
+              <ThemeToggleButton className="-mx-2" />
+
               {!user && (
                 <NavLink
                   to="/signup"
@@ -116,6 +119,7 @@ export function Navigation() {
             </div>
 
             <div className="flex items-center md:hidden">
+            <ThemeToggleButton className={clsx(!hasTabBar && 'mr-1')} />
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileOpen((v) => !v)}

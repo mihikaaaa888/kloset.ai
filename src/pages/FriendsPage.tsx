@@ -116,12 +116,8 @@ export function FriendsPage() {
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="pt-10 lg:pt-14 pb-6">
+        <div className="pt-24 lg:pt-24 pb-6">
           <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">Friends</h1>
-          <p className="text-text-muted text-sm mt-3">
-            {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
-            {received.length > 0 && <> · {received.length} {received.length === 1 ? 'thing' : 'things'} shared with you</>}
-          </p>
         </div>
 
         <div role="tablist" aria-label="Friends sections" className="flex gap-8 border-b border-text-primary/10 mb-8">

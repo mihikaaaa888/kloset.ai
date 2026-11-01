@@ -22,9 +22,9 @@ import type { CatalogItem, ClothingCategory } from '@/types'
 type ShopMode = 'piece' | 'complete' | 'rent'
 type Section = 'women' | 'men'
 
-const MODES: { id: ShopMode; label: string }[] = [
+const MODES: { id: ShopMode; label: string; blurb?: string }[] = [
   { id: 'piece', label: 'Shop' },
-  { id: 'complete', label: 'Complete a piece' },
+  { id: 'complete', label: 'Complete a piece', blurb: 'Pick something you own, or upload a photo — we’ll find what goes with it.' },
   { id: 'rent', label: 'Rent' },
 ]
 
@@ -80,6 +80,7 @@ export function DiscoverPage() {
     }
   }
 
+  const activeMode = MODES.find((m) => m.id === mode)!
   const isEmpty = pieces.length === 0
   // New pieces open with the best matches for this user; everything else follows.
   const suggested = mode === 'piece' ? pieces.slice(0, SUGGESTED_COUNT) : []
@@ -102,6 +103,17 @@ export function DiscoverPage() {
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        {/* ── Header ── */}
+        <header className="pt-24 pb-8 lg:pt-24 text-center">
+          <p className="text-butter-yellow text-xs font-medium uppercase tracking-ultra-wide mb-3">
+            Personal shopping
+          </p>
+          <h1 className="font-display text-4xl lg:text-5xl font-medium text-text-primary">
+            Shop for you
+          </h1>
+          {activeMode.blurb && <p className="text-text-muted text-sm mt-3">{activeMode.blurb}</p>}
+        </header>
 
         {/* ── Toolbar: mode tabs + budget ── */}
         <div className="flex flex-col-reverse sm:flex-row sm:items-end justify-between gap-4 border-b border-text-primary/10 pb-3">
@@ -187,6 +199,7 @@ export function DiscoverPage() {
             <section aria-labelledby="shop-suggested">
               <div className="flex items-baseline justify-between gap-4 mb-6">
                 <h2 id="shop-suggested" className="font-display text-2xl lg:text-3xl text-text-primary">Suggested for you</h2>
+                <p className="text-2xs uppercase tracking-widest text-text-muted">Based on your style</p>
               </div>
               {renderGrid(suggested)}
             </section>

@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { ThemePicker } from '@/components/ui/ThemeToggle'
 import {
-  Archive, Ban, Bookmark, Heart, LogOut, Palette, Pencil, Repeat2, Shirt,
-  SunMoon, Trash2,
+  Ban, Bell, Bookmark, Briefcase, CalendarHeart, Coffee, Compass, Dumbbell, Gem, Heart, Leaf,
+  LogOut, Palette, PartyPopper, Pencil, Plane, Repeat2, RotateCcw, Shirt, SlidersHorizontal,
+  Sun, SunMoon, Trash2, Wine,
   type LucideIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -13,6 +14,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useOutfitStore } from '@/store/outfitStore'
 import { deleteWithUndo } from '@/store/undoStore'
+import { styleOptions } from '@/pages/onboarding/onboardingData'
 import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
@@ -34,7 +36,6 @@ export function ProfilePage() {
   const clearProfile = useUserStore((s) => s.clearProfile)
   const wardrobeItems = useWardrobeStore((s) => s.items)
   const savedOutfits = useOutfitStore((s) => s.savedOutfits)
-  const trashedOutfits = useOutfitStore((s) => s.trashedOutfits)
   const removeWardrobeItem = useWardrobeStore((s) => s.removeItem)
   const clearOutfits = useOutfitStore((s) => s.clearOutfits)
   const { user, signOut } = useAuth()
@@ -51,6 +52,7 @@ export function ProfilePage() {
   }
 
   const totalWears = wardrobeItems.reduce((sum, i) => sum + i.timesWorn, 0)
+  const styleLabels = styleOptions.filter((s) => profile.stylePreferences.includes(s.value))
 
   const handleEditProfile = () => navigate('/onboarding?edit=true')
 
@@ -61,6 +63,22 @@ export function ProfilePage() {
       if (savedProfile) useUserStore.getState().setProfile(savedProfile)
       useUserStore.getState().markLoaded(loadedForUserId)
     }
+  }
+
+  const handleResetOnboarding = () => {
+    if (!window.confirm('This will restart your onboarding and clear your profile. Your wardrobe and saved outfits will remain. Continue?')) return
+    const restoreProfile = snapshotProfile()
+    deleteWithUndo({
+      message: 'Profile cleared',
+      remove: () => {
+        clearProfile()
+        navigate('/onboarding')
+      },
+      restore: () => {
+        restoreProfile()
+        navigate('/profile')
+      },
+    })
   }
 
   const handleClearAll = () => {
@@ -95,7 +113,15 @@ export function ProfilePage() {
     }
   }
 
-  const details = [profile.occupation, profile.ageRange && AGE_LABEL[profile.ageRange]].filter(Boolean)
+  const preferences: { icon: LucideIcon; label: string; value: string }[] = [
+    { icon: Bell, label: 'Recommendations', value: FREQUENCY_LABEL[profile.recommendationFrequency] },
+    ...(profile.genderStylePreference && profile.genderStylePreference !== 'no-preference'
+      ? [{ icon: Compass, label: 'Style direction', value: profile.genderStylePreference }]
+      : []),
+    // Older profiles copied occupation into lifestyle; don't show it twice.
+    ...(profile.lifestyle && profile.lifestyle !== profile.occupation ? [{ icon: Leaf, label: 'Lifestyle', value: profile.lifestyle }] : []),
+  ]
+
   return (
     <div className="min-h-screen bg-warm-cream pb-28 md:pb-12">
       {/* ── Header band: brand forest in light mode, near-black in dark; cream type on both ── */}
@@ -109,12 +135,14 @@ export function ProfilePage() {
             <h1 className="font-display text-4xl lg:text-5xl font-medium text-[#fffdd0] leading-none capitalize truncate">
               {profile.name}
             </h1>
-            {details.length > 0 && (
-              <p className="text-2xs uppercase tracking-widest text-[#fffdd0]/75 mt-3 flex flex-wrap gap-x-2">
-                {details.map((detail, index) => (
-                  <span key={index} className="whitespace-nowrap">{detail}{index < details.length - 1 && ' ·'}</span>
+            {styleLabels.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {styleLabels.map((s) => (
+                  <span key={s.value} className="px-3 py-1 rounded-full text-2xs uppercase tracking-widest font-medium bg-[#fffdd0]/12 text-[#fffdd0] ring-1 ring-inset ring-[#fffdd0]/30">
+                    {s.label}
+                  </span>
                 ))}
-              </p>
+              </div>
             )}
           </div>
 
@@ -146,16 +174,54 @@ export function ProfilePage() {
             </Card>
           )}
 
-          {/* ── Appearance ── */}
-          <Card icon={SunMoon} title="Appearance">
-            <ThemePicker />
+          {/* ── Occasions ── */}
+          {profile.typicalOccasions.length > 0 && (
+            <Card icon={CalendarHeart} title="Occasions">
+              <div className="flex flex-wrap gap-2">
+                {profile.typicalOccasions.map((o) => {
+                  const Icon = OCCASION_ICON[o] ?? Sun
+                  return (
+                    <Chip key={o} icon={Icon}>
+                      {OCCASION_LABEL[o] ?? o.replace('-', ' ')}
+                    </Chip>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* ── Preferences ── */}
+          <Card icon={SlidersHorizontal} title="Preferences">
+            <dl className="space-y-4">
+              {preferences.map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-center gap-3.5">
+                  <IconBadge icon={Icon} size="sm" />
+                  <div className="min-w-0">
+                    <dt className="text-2xs uppercase tracking-widest text-text-muted">{label}</dt>
+                    <dd className="text-sm text-text-primary first-letter:uppercase mt-0.5">{value}</dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
           </Card>
+
         </div>
+
+        {/* Keep the heading and theme choices together in one clear full-width panel. */}
+        <section className={clsx(CARD, 'p-5 sm:p-6 mb-4')}>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="flex items-center gap-3">
+              <IconBadge icon={SunMoon} />
+              <span className="font-display text-2xl font-medium text-text-primary">Appearance</span>
+            </h2>
+            <ThemePicker />
+          </div>
+        </section>
 
         {/* ── Account ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
           <ActionTile icon={Pencil} label="Edit style" onClick={handleEditProfile} />
-          <ActionTile icon={Archive} label={`Recycle bin${trashedOutfits.length ? ` (${trashedOutfits.length})` : ''}`} hint="Restore or permanently delete saved outfits" onClick={() => navigate('/wardrobe?view=outfits&recycle=1')} />
+          <ActionTile icon={RotateCcw} label="Restart setup" hint="Redo onboarding — your wardrobe is kept" onClick={handleResetOnboarding} />
           <ActionTile icon={LogOut} label="Sign out" hint={user?.email ? `Signed in as ${user.email}` : undefined} onClick={handleSignOut} />
           <ActionTile icon={Trash2} label="Clear data" hint="Delete everything and start fresh" onClick={handleClearAll} danger />
         </div>
@@ -224,6 +290,15 @@ function Card({ icon, title, children }: { icon: LucideIcon; title: string; chil
   )
 }
 
+function Chip({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 h-9 pl-3 pr-4 rounded-full bg-butter-yellow/10 ring-1 ring-inset ring-butter-yellow/15 text-sm text-text-primary capitalize">
+      <Icon size={15} strokeWidth={1.8} className="text-butter-yellow" />
+      {children}
+    </span>
+  )
+}
+
 /** Colours as named pills: a dot of the real colour plus its name, so nothing relies on hover or on telling swatches apart. */
 function ColourGroup({ icon: Icon, label, colours, avoided = false }: { icon: LucideIcon; label: string; colours: string[]; avoided?: boolean }) {
   return (
@@ -279,12 +354,32 @@ function ActionTile({
 
 // ─── Label maps ───────────────────────────────────────────────────────────────
 
-const AGE_LABEL: Record<string, string> = {
-  'under-18': 'Under 18',
-  '18-24': '18–24',
-  'under-25': 'Under 25',
-  '25-34': '25–34',
-  '35-44': '35–44',
-  '45-54': '45–54',
-  '55+': '55+',
+const FREQUENCY_LABEL: Record<string, string> = {
+  daily: 'Daily',
+  'a-few-times-a-week': 'A few times a week',
+  weekly: 'Weekly',
+  'on-demand': 'On demand',
+}
+
+const OCCASION_ICON: Record<string, LucideIcon> = {
+  work: Briefcase,
+  casual: Coffee,
+  formal: Gem,
+  'date-night': Wine,
+  weekend: Sun,
+  travel: Plane,
+  gym: Dumbbell,
+  'special-event': PartyPopper,
+}
+
+// Same wording as the survey (onboardingData occasionOptions).
+const OCCASION_LABEL: Record<string, string> = {
+  work: 'Work',
+  casual: 'Everyday',
+  formal: 'Weddings & festive',
+  'date-night': 'Dates',
+  weekend: 'Brunch & cafés',
+  travel: 'Travel',
+  gym: 'Gym',
+  'special-event': 'Parties',
 }

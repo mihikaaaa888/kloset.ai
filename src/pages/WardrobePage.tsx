@@ -13,8 +13,8 @@ import { ShareSheet } from '@/components/friends/ShareSheet'
 import type { ShareTarget } from '@/lib/friendService'
 import { Button } from '@/components/ui/Button'
 import { useWardrobeStore } from '@/store/wardrobeStore'
-import { useKlosetStore } from '@/store/klosetStore'
 import { useUserStore } from '@/store/userStore'
+import { useOutfitStore } from '@/store/outfitStore'
 import { usePhotoCleanupStore } from '@/store/photoCleanupStore'
 import { deleteImage } from '@/lib/imageStorage'
 import { deleteWithUndo, notify } from '@/store/undoStore'
@@ -146,38 +146,22 @@ export function WardrobePage() {
   }
 
   const name = profile?.name?.split(' ')[0] ?? 'Your'
-  const collections = useKlosetStore((s) => s.collections)
-  const activeCollectionId = useKlosetStore((s) => s.activeCollectionId)
-  const createCollection = useKlosetStore((s) => s.createCollection)
-  const selectCollection = useKlosetStore((s) => s.selectCollection)
-  const [creatingKloset, setCreatingKloset] = useState(false)
-  const [newKlosetName, setNewKlosetName] = useState('')
-  const mainKlosetName = `${profile?.name?.split(' ')[0] ?? 'My'}'s Kloset`
-
-  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (createCollection(newKlosetName)) {
-      setNewKlosetName('')
-      setCreatingKloset(false)
-      setView('outfits')
-    }
-  }
-
-  const handleSelectKloset = (id: string) => {
-    selectCollection(id)
-    setView(id === 'main' ? 'pieces' : 'outfits')
-  }
+  const savedCount = useOutfitStore((s) => s.savedOutfits.length)
 
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-10 lg:pt-14 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-24 lg:pt-24 pb-6">
           <div>
             <h1 className="font-display text-4xl lg:text-6xl font-medium text-text-primary leading-none">
               {name}&apos;s Kloset
             </h1>
+            <p className="text-text-muted text-sm mt-3">
+              {items.length} {items.length === 1 ? 'piece' : 'pieces'}
+              {savedCount > 0 && <> · {savedCount} {savedCount === 1 ? 'outfit' : 'outfits'}</>}
+            </p>
           </div>
 
           {view === 'pieces' && (
@@ -204,38 +188,6 @@ export function WardrobePage() {
               </button>
             </div>
           )}
-        </div>
-
-        <div className="mb-7 border-b border-text-primary/10">
-          <div role="tablist" aria-label="Your Klosets" className="flex items-end gap-2 overflow-x-auto">
-            {collections.map((collection) => {
-              const label = collection.id === 'main' ? mainKlosetName : collection.name
-              const selected = activeCollectionId === collection.id
-              return (
-                <button
-                  key={collection.id}
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => handleSelectKloset(collection.id)}
-                  className={`relative flex shrink-0 items-center gap-2 rounded-t-xl border border-b-0 px-4 py-3 text-xs transition-colors ${selected ? 'border-text-primary/15 bg-surface text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-                >
-                  <span className="inline-block h-2.5 w-4 rounded-t-sm border border-current/40 border-b-0 opacity-70" aria-hidden="true" />
-                  {label}
-                </button>
-              )
-            })}
-            <button
-              onClick={() => setCreatingKloset((current) => !current)}
-              className="mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-text-primary/20 text-text-primary hover:bg-text-primary hover:text-warm-cream"
-              aria-label="Create a new Kloset"
-              title="Create a new Kloset"
-            ><Plus size={16} /></button>
-          </div>
-          {creatingKloset && <form onSubmit={handleCreateKloset} className="flex max-w-xl flex-col gap-2 py-4 sm:flex-row">
-            <input autoFocus required maxLength={40} value={newKlosetName} onChange={(event) => setNewKlosetName(event.target.value)} placeholder="Name your Kloset, e.g. Bali Kloset" aria-label="New Kloset name" className="min-w-0 flex-1 border-b border-text-primary/25 bg-transparent px-1 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-text-primary focus:outline-none" />
-            <button type="submit" className="h-10 px-5 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest">Create Kloset</button>
-            <button type="button" onClick={() => { setCreatingKloset(false); setNewKlosetName('') }} className="h-10 px-3 text-text-muted hover:text-text-primary" aria-label="Cancel creating Kloset"><X size={17} /></button>
-          </form>}
         </div>
 
         {/* View switch */}
@@ -434,8 +386,8 @@ function NoResultsState({ query, category, onClear }: { query: string; category:
 
 function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-butter-yellow focus-visible:ring-offset-4 focus-visible:ring-offset-warm-cream">
-      <div className="relative w-full aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
+    <button onClick={onClick} className="group w-full self-start text-left">
+      <div className="w-full aspect-[3/4] ring-1 ring-inset ring-text-primary/15 group-hover:ring-text-primary/40 flex flex-col items-center justify-center gap-3 transition-colors">
         <span className="w-12 h-12 rounded-full ring-1 ring-text-primary/20 group-hover:bg-text-primary group-hover:text-warm-cream group-hover:ring-text-primary flex items-center justify-center text-text-primary transition-colors duration-300">
           <Plus size={18} strokeWidth={1.25} />
         </span>

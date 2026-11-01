@@ -19,7 +19,7 @@ interface BudgetBand {
 }
 
 export const BUDGET_BANDS: BudgetBand[] = [
-  { id: 'any',  buyLabel: 'None',                rentLabel: 'None',                  buy: [0, Infinity],      rent: [0, Infinity] },
+  { id: 'any',  buyLabel: 'Any budget',          rentLabel: 'Any budget',            buy: [0, Infinity],      rent: [0, Infinity] },
   { id: 'low',  buyLabel: 'Under ₹2,500',        rentLabel: 'Under ₹500 / wk',       buy: [0, 2499],          rent: [0, 499] },
   { id: 'mid',  buyLabel: '₹2,500 – ₹6,000',     rentLabel: '₹500 – ₹1,000 / wk',    buy: [2500, 5999],       rent: [500, 999] },
   { id: 'high', buyLabel: '₹6,000 – ₹15,000',    rentLabel: '₹1,000 – ₹2,000 / wk',  buy: [6000, 14999],      rent: [1000, 1999] },

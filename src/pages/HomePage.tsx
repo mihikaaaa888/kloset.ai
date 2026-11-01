@@ -1,28 +1,55 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shirt, Heart, Plus, ArrowRight, CloudSun, Sparkles } from 'lucide-react'
+import { Shirt, Heart, Plus, CloudSun } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { useWardrobeStore } from '@/store/wardrobeStore'
 import { useItemImage } from '@/hooks/useItemImage'
 import type { ClothingItem } from '@/types'
 import { generateOutfit, type WeatherCondition } from '@/lib/stylist'
 
+function getGreeting(name: string): { time: string; lead: string; name: string; end: string } {
+  const hour = new Date().getHours()
+  const first = name.split(' ')[0]
+  const sep = first ? ', ' : ''
+  if (hour < 12) return { time: 'Good morning', lead: `What are we wearing today${sep}`, name: first, end: '?' }
+  if (hour < 17) return { time: 'Good afternoon', lead: `Ready to put together a look${sep}`, name: first, end: '?' }
+  return { time: 'Good evening', lead: `Let's plan tonight's outfit${sep}`, name: first, end: '.' }
+}
+
 export function HomePage() {
   const navigate = useNavigate()
   const profile = useUserStore((s) => s.profile)
   const items = useWardrobeStore((s) => s.items)
 
+  const greeting = getGreeting(profile?.name ?? '')
+
   const favourites = items.filter((i) => i.isFavourite).slice(0, 4)
 
   return (
-    <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-24 md:pb-0">
+    <div className="min-h-screen bg-warm-cream pt-40 lg:pt-44 pb-24 md:pb-0">
+      {/* ── Greeting — full-bleed yellow band ── */}
+      <header className="bg-deep-purple">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-14 pb-16 lg:pt-20 lg:pb-24">
+          <p className="text-2xs uppercase tracking-ultra-wide text-butter-yellow font-medium mb-4">{greeting.time}</p>
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-medium text-text-primary leading-[1.02] max-w-4xl">
+            {greeting.lead}
+            {greeting.name && <em className="italic text-butter-yellow">{greeting.name}</em>}
+            {greeting.end}
+          </h1>
+        </div>
+      </header>
+
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
 
         <DailyOutfitCard
           items={items}
           profile={profile}
-          onOpenStylist={() => navigate('/stylist', { state: { mode: 'wardrobe' } })}
         />
+        <div className="mb-16 lg:mb-20">
+          <button onClick={() => navigate('/stylist', { state: { mode: 'wardrobe' } })} className="text-tab text-tab-active">
+            Ask stylist
+          </button>
+        </div>
 
         {/* ── Wardrobe empty state ── */}
         {items.length === 0 && (
@@ -49,24 +76,6 @@ export function HomePage() {
 
       </div>
 
-      {/* ── Stylist CTA ── */}
-      <button onClick={() => navigate('/stylist', { state: { mode: 'wardrobe' } })} className="group block w-full text-left bg-deep-purple hover:bg-dark-purple transition-colors duration-300">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 lg:py-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-          <div>
-            <p className="text-2xs uppercase tracking-ultra-wide text-butter-yellow font-medium mb-2">Your personal stylist</p>
-            <h3 className="font-display text-3xl lg:text-4xl font-medium text-text-primary leading-none">
-              Go to <em className="italic text-butter-yellow">stylist</em>
-            </h3>
-            <p className="text-text-muted text-sm mt-3 max-w-md">
-              Get a fresh look from the pieces you already own.
-            </p>
-          </div>
-          <span className="flex items-center gap-2 text-2xs uppercase tracking-widest font-semibold text-text-primary flex-shrink-0">
-            Open stylist
-            <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
-          </span>
-        </div>
-      </button>
     </div>
   )
 }
@@ -98,18 +107,13 @@ function weatherDescription(code: number): string {
   return 'Current conditions'
 }
 
-function DailyOutfitCard({
-  items,
-  profile,
-  onOpenStylist,
-}: {
+function DailyOutfitCard({ items, profile }: {
   items: ClothingItem[]
   profile: Parameters<typeof generateOutfit>[2]
-  onOpenStylist: () => void
 }) {
   const [weather, setWeather] = useState<CurrentWeather | null>(null)
   const [weatherError, setWeatherError] = useState(false)
-  const [recommendation, setRecommendation] = useState<ClothingItem[] | null>(null)
+  const [recommendation, setRecommendation] = useState<string[] | null>(null)
   const [recommendationLoading, setRecommendationLoading] = useState(false)
   const [today, setToday] = useState(() => new Date())
   const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(today)
@@ -160,12 +164,11 @@ function DailyOutfitCard({
     try {
       const cached = localStorage.getItem(cacheKey)
       if (cached) {
-        const cachedIds = JSON.parse(cached) as string[]
-        if (Array.isArray(cachedIds) && cachedIds.every((id) => typeof id === 'string')) {
-          const cachedItems = cachedIds.map((id) => items.find((item) => item.id === id)).filter((item): item is ClothingItem => Boolean(item))
-          if (cachedItems.length) setRecommendation(cachedItems)
+        const cachedNames = JSON.parse(cached) as string[]
+        if (Array.isArray(cachedNames) && cachedNames.every((name) => typeof name === 'string')) {
+          setRecommendation(cachedNames)
           setRecommendationLoading(false)
-          if (cachedItems.length) return
+          return
         }
       }
     } catch {
@@ -177,11 +180,10 @@ function DailyOutfitCard({
     void generateOutfit({ occasion: 'casual', weather: weather.condition, mood: 'relaxed' }, items, profile, dailyAttempt)
       .then(({ suggestion }) => {
         if (cancelled) return
-        const recommendedItems = suggestion?.items.map(({ item }) => item) ?? []
-        const ids = recommendedItems.map((item) => item.id)
-        setRecommendation(recommendedItems)
+        const names = suggestion?.items.map(({ item }) => item.name) ?? []
+        setRecommendation(names)
         try {
-          localStorage.setItem(cacheKey, JSON.stringify(ids))
+          localStorage.setItem(cacheKey, JSON.stringify(names))
         } catch {
           // The daily seed still keeps the recommendation stable within this date.
         }
@@ -193,45 +195,44 @@ function DailyOutfitCard({
   }, [weather, items, profile, today.getDate(), today.getMonth(), today.getFullYear()])
 
   return (
-    <section className="-mt-8 lg:-mt-10 mb-16 lg:mb-20 overflow-hidden bg-dark-purple text-text-primary shadow-lifted" aria-labelledby="daily-outfit-title">
-      <div className="grid lg:grid-cols-[1fr_auto]">
-        <div className="p-7 sm:p-9 lg:p-12">
-          <h2 id="daily-outfit-title" className="font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-tight">
+    <section className="mb-16 lg:mb-20" aria-labelledby="daily-outfit-title">
+      <div className="grid lg:grid-cols-[1fr_auto] lg:items-stretch">
+        <div className="py-8 sm:py-10 lg:py-12 lg:pr-12">
+          <p className="text-2xs uppercase tracking-ultra-wide text-text-muted font-medium">{dateLabel}</p>
+          <h2 id="daily-outfit-title" className="mt-5 font-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-tight text-text-primary">
             Today’s outfit <em className="italic text-butter-yellow">recommendation</em>
           </h2>
-          <p className="mt-4 text-2xs uppercase tracking-ultra-wide text-butter-yellow font-medium">{dateLabel}</p>
-          <div className="mt-3 flex items-center gap-2 text-sm text-text-muted" aria-live="polite">
-            <CloudSun size={18} className="text-butter-yellow" />
+          <div className="mt-5 flex items-center gap-2 text-sm text-text-muted" aria-live="polite">
+            <CloudSun size={18} className="text-deep-purple" />
             {weather ? <span>{weather.label} · {Math.round(weather.temperature)}°C</span> : weatherError ? <span>Weather unavailable — allow location access to see local conditions.</span> : <span>Checking today’s weather…</span>}
           </div>
           {weather && (
-          <div className="mt-7" aria-live="polite">
-              <p className="text-sm text-text-muted">{recommendationLoading ? 'Putting together a look from your Kloset…' : recommendation?.length ? 'A look picked for today, from pieces you own:' : items.length < 2 ? 'Add at least two pieces to your Kloset for a personal outfit recommendation.' : 'Your stylist can put together a fresh look for today.'}</p>
+            <div className="mt-7" aria-live="polite">
+              {!recommendation?.length && <p className="text-sm text-text-muted">{recommendationLoading ? 'Putting together a look from your Kloset…' : items.length < 2 ? 'Add at least two pieces to your Kloset for a personal outfit recommendation.' : 'Your stylist can put together a fresh look for today.'}</p>}
               {recommendation?.length ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {recommendation.map((item) => <RecommendedItem key={item.id} item={item} />)}
+                <div className="mt-4 flex flex-wrap gap-4">
+                  {items.filter((item) => recommendation.includes(item.name)).map((item) => (
+                    <RecommendationPiece key={item.id} item={item} />
+                  ))}
                 </div>
               ) : null}
             </div>
           )}
         </div>
-        <button onClick={onOpenStylist} className="group flex min-h-24 items-center justify-between gap-5 bg-butter-yellow px-7 py-6 text-left text-dark-purple transition-colors hover:bg-soft-butter sm:px-9 lg:min-h-full lg:w-64 lg:flex-col lg:items-start lg:justify-end lg:p-9" aria-label="Go to AI Stylist">
-          <span className="flex items-center gap-2 text-2xs uppercase tracking-widest font-semibold"><Sparkles size={14} /> AI Stylist</span>
-          <span className="inline-flex items-center gap-2 text-sm font-medium">Go to stylist <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span>
-        </button>
       </div>
     </section>
   )
 }
 
-function RecommendedItem({ item }: { item: ClothingItem }) {
+function RecommendationPiece({ item }: { item: ClothingItem }) {
   const imageUrl = useItemImage(item)
+
   return (
-    <div className="min-w-0 overflow-hidden bg-white/5">
-      <div className="aspect-[4/5] flex items-center justify-center bg-white/5">
-        {imageUrl ? <img src={imageUrl} alt={item.name} className="h-full w-full object-contain" /> : <Shirt size={24} className="text-text-primary/30" />}
+    <div className="flex items-center gap-3">
+      <div className="h-20 w-16 overflow-hidden bg-cream-200">
+        {imageUrl ? <img src={imageUrl} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Shirt size={20} className="text-text-primary/25" /></div>}
       </div>
-      <p className="truncate px-2 py-2 text-xs text-text-primary">{item.name}</p>
+      <span className="max-w-32 text-sm font-medium text-text-primary">{item.name}</span>
     </div>
   )
 }
