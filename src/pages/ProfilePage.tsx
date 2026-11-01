@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { ThemePicker } from '@/components/ui/ThemeToggle'
 import {
-  Ban, Bell, Bookmark, Briefcase, CalendarHeart, Coffee, Compass, Dumbbell, Gem, Heart, Leaf,
-  LogOut, Palette, PartyPopper, Pencil, Plane, Repeat2, RotateCcw, Shirt, SlidersHorizontal,
+  Archive, Ban, Bell, Bookmark, Briefcase, CalendarHeart, Coffee, Compass, Dumbbell, Gem, Heart, Leaf,
+  LogOut, Palette, PartyPopper, Pencil, Plane, Repeat2, Shirt, SlidersHorizontal,
   Sun, SunMoon, Trash2, Wine,
   type LucideIcon,
 } from 'lucide-react'
@@ -36,6 +36,7 @@ export function ProfilePage() {
   const clearProfile = useUserStore((s) => s.clearProfile)
   const wardrobeItems = useWardrobeStore((s) => s.items)
   const savedOutfits = useOutfitStore((s) => s.savedOutfits)
+  const trashedOutfits = useOutfitStore((s) => s.trashedOutfits)
   const removeWardrobeItem = useWardrobeStore((s) => s.removeItem)
   const clearOutfits = useOutfitStore((s) => s.clearOutfits)
   const { user, signOut } = useAuth()
@@ -63,22 +64,6 @@ export function ProfilePage() {
       if (savedProfile) useUserStore.getState().setProfile(savedProfile)
       useUserStore.getState().markLoaded(loadedForUserId)
     }
-  }
-
-  const handleResetOnboarding = () => {
-    if (!window.confirm('This will restart your onboarding and clear your profile. Your wardrobe and saved outfits will remain. Continue?')) return
-    const restoreProfile = snapshotProfile()
-    deleteWithUndo({
-      message: 'Profile cleared',
-      remove: () => {
-        clearProfile()
-        navigate('/onboarding')
-      },
-      restore: () => {
-        restoreProfile()
-        navigate('/profile')
-      },
-    })
   }
 
   const handleClearAll = () => {
@@ -221,7 +206,7 @@ export function ProfilePage() {
         {/* ── Account ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
           <ActionTile icon={Pencil} label="Edit style" onClick={handleEditProfile} />
-          <ActionTile icon={RotateCcw} label="Restart setup" hint="Redo onboarding — your wardrobe is kept" onClick={handleResetOnboarding} />
+          <ActionTile icon={Archive} label="Recycle bin" hint={trashedOutfits.length ? `${trashedOutfits.length} deleted outfits` : 'Restore deleted outfits'} onClick={() => navigate('/wardrobe?view=outfits&recycle=1')} />
           <ActionTile icon={LogOut} label="Sign out" hint={user?.email ? `Signed in as ${user.email}` : undefined} onClick={handleSignOut} />
           <ActionTile icon={Trash2} label="Clear data" hint="Delete everything and start fresh" onClick={handleClearAll} danger />
         </div>
