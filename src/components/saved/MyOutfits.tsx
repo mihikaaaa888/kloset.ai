@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Sparkles, X } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 
 import { SavedOutfitCard } from '@/components/saved/SavedOutfitCard'
 import { SavedOutfitDetailModal } from '@/components/saved/SavedOutfitDetailModal'
@@ -17,7 +17,6 @@ import type { Outfit } from '@/types'
 /** Saved looks, named outfit collections, and recoverable deleted looks. */
 export function MyOutfits() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
   const { savedOutfits, trashedOutfits, saveOutfit, trashOutfit, restoreOutfit, permanentlyDeleteOutfit } = useOutfitStore()
   const { collections, activeCollectionId, addOutfits, removeOutfit } = useKlosetStore()
   const wardrobeItems = useWardrobeStore((s) => s.items)
@@ -32,10 +31,6 @@ export function MyOutfits() {
     nextParams.delete('recycle')
     setSearchParams(nextParams, { replace: true })
   }
-  const [showNewKloset, setShowNewKloset] = useState(false)
-  const [newKlosetName, setNewKlosetName] = useState('')
-  const [showAddFromMain, setShowAddFromMain] = useState(false)
-  const [pickedOutfitIds, setPickedOutfitIds] = useState<string[]>([])
 
   const activeCollection = collections.find((collection) => collection.id === activeCollectionId) ?? collections[0]
   const isMain = activeCollection.id === 'main'
@@ -57,8 +52,6 @@ export function MyOutfits() {
     () => selectedOutfit ? resolveOutfitItems(selectedOutfit, wardrobeItems) : [],
     [selectedOutfit, wardrobeItems],
   )
-
-  const availableMainOutfits = savedOutfits.filter((outfit) => !activeCollection.outfitIds.includes(outfit.id))
 
   // Shop and inspiration pieces aren't in the wardrobe, so pass the resolved ones along.
   const sendOutfit = (outfit: Outfit) => {
@@ -103,83 +96,15 @@ export function MyOutfits() {
     setCreating(false)
   }
 
-  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const created = createCollection(newKlosetName)
-    if (created) {
-      setNewKlosetName('')
-      setShowNewKloset(false)
-      clearRecycleBinView()
-    }
-  }
-
-  const togglePickedOutfit = (id: string) => {
-    setPickedOutfitIds((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id])
-  }
-
-  const addPickedOutfits = () => {
-    addOutfits(activeCollection.id, pickedOutfitIds)
-    setPickedOutfitIds([])
-    setShowAddFromMain(false)
-  }
-
   return (
     <>
-      <div className="mb-8 border-b border-text-primary/10 pb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <label htmlFor="kloset-collection" className="mb-2 block text-2xs font-medium uppercase tracking-widest text-text-muted">Your klosets</label>
-            <select
-              id="kloset-collection"
-              value={activeCollection.id}
-              onChange={(event) => { selectCollection(event.target.value); clearRecycleBinView() }}
-              className="min-w-56 border-b border-text-primary/25 bg-transparent py-2 pr-8 font-display text-2xl text-text-primary focus:border-text-primary focus:outline-none"
-            >
-              {collections.map((collection) => (
-                <option key={collection.id} value={collection.id}>{collection.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {!showRecycleBin && !isMain && <button
-              onClick={() => { setPickedOutfitIds([]); setShowAddFromMain(true) }}
-              className="h-10 px-4 ring-1 ring-inset ring-text-primary/20 text-2xs font-medium uppercase tracking-widest text-text-primary hover:ring-text-primary/50"
-            >
-              Add from Main
-            </button>}
-            <button
-              onClick={() => { setShowNewKloset((current) => !current); clearRecycleBinView() }}
-              className="h-10 px-4 flex items-center gap-2 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest hover:bg-text-primary/90"
-            >
-              <Plus size={14} /> New Kloset
-            </button>
-            {!isMain && <button
-              onClick={deleteActiveCollection}
-              className="h-10 px-4 ring-1 ring-inset ring-red-800/20 text-2xs font-medium uppercase tracking-widest text-red-800 hover:ring-red-800/50"
-            >
-              Delete Kloset
-            </button>}
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-muted">
-            {showRecycleBin
-              ? `${trashedOutfits.length} deleted ${trashedOutfits.length === 1 ? 'outfit' : 'outfits'} · items are permanently deleted after 30 days.`
-              : isMain
-                ? `${savedOutfits.length} ${savedOutfits.length === 1 ? 'outfit' : 'outfits'} in your main collection.`
-                : `${currentOutfits.length} ${currentOutfits.length === 1 ? 'outfit' : 'outfits'} in ${activeCollection.name}. Added looks stay in Main Kloset too.`}
-          </p>
-          {!showRecycleBin && <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/stylist')}
-              className="h-10 px-4 flex items-center gap-2 ring-1 ring-inset ring-text-primary/20 text-2xs font-medium uppercase tracking-widest text-text-primary hover:ring-text-primary/50"
-            >
-              <Sparkles size={14} strokeWidth={1.25} /> Ask the stylist
-            </button>
-          </div>}
-        </div>
+      <div className="mb-8 flex justify-end border-b border-text-primary/10 pb-6">
+        {!showRecycleBin && <button
+          onClick={() => navigate('/stylist')}
+          className="h-10 px-4 flex items-center gap-2 ring-1 ring-inset ring-text-primary/20 text-2xs font-medium uppercase tracking-widest text-text-primary hover:ring-text-primary/50"
+        >
+          <Sparkles size={14} strokeWidth={1.25} /> Ask the stylist
+        </button>}
       </div>
 
       {resolvedOutfits.length === 0 ? (
@@ -229,34 +154,6 @@ export function MyOutfits() {
           sendOutfit(outfit)
         }}
       />
-
-      {showAddFromMain && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddFromMain(false)}>
-        <section role="dialog" aria-modal="true" aria-labelledby="add-outfits-title" onClick={(event) => event.stopPropagation()} className="w-full max-w-xl max-h-[85svh] overflow-hidden rounded-2xl bg-warm-cream shadow-2xl">
-          <header className="flex items-start justify-between border-b border-text-primary/10 p-6">
-            <div>
-              <p className="text-2xs uppercase tracking-widest text-text-muted">Keep your original looks</p>
-              <h2 id="add-outfits-title" className="mt-1 font-display text-2xl text-text-primary">Add outfits to {activeCollection.name}</h2>
-            </div>
-            <button onClick={() => setShowAddFromMain(false)} aria-label="Close add outfits dialog" className="p-1 text-text-muted hover:text-text-primary"><X size={20} /></button>
-          </header>
-          <div className="max-h-[55svh] overflow-y-auto p-6">
-            {availableMainOutfits.length === 0 ? <p className="py-8 text-center text-sm text-text-muted">All your Main Kloset outfits are already in this collection.</p> : <div className="space-y-2">
-              {availableMainOutfits.map((outfit) => <label key={outfit.id} className="flex cursor-pointer items-center gap-3 border border-text-primary/10 p-4 hover:border-text-primary/30">
-                <input type="checkbox" checked={pickedOutfitIds.includes(outfit.id)} onChange={() => togglePickedOutfit(outfit.id)} className="h-4 w-4 accent-text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-display text-lg text-text-primary">{outfit.name}</span>
-                  <span className="block text-xs capitalize text-text-muted">{outfit.occasion.replace('-', ' ')}</span>
-                </span>
-                <span className="text-2xs uppercase tracking-widest text-text-muted">In Main</span>
-              </label>)}
-            </div>}
-          </div>
-          <footer className="flex items-center justify-between border-t border-text-primary/10 p-6">
-            <span className="text-xs text-text-muted">{pickedOutfitIds.length} selected</span>
-            <button disabled={!pickedOutfitIds.length} onClick={addPickedOutfits} className="h-11 px-5 bg-text-primary text-warm-cream text-2xs font-medium uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-40">Add without moving</button>
-          </footer>
-        </section>
-      </div>}
 
       <ShareSheet target={shareTarget} onClose={() => setShareTarget(null)} />
       <CreateOutfitModal open={creating} items={wardrobeItems} onClose={() => setCreating(false)} onSave={handleCreate} />

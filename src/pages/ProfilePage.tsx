@@ -33,7 +33,6 @@ export function ProfilePage() {
   const clearProfile = useUserStore((s) => s.clearProfile)
   const wardrobeItems = useWardrobeStore((s) => s.items)
   const savedOutfits = useOutfitStore((s) => s.savedOutfits)
-  const trashedOutfits = useOutfitStore((s) => s.trashedOutfits)
   const removeWardrobeItem = useWardrobeStore((s) => s.removeItem)
   const clearOutfits = useOutfitStore((s) => s.clearOutfits)
   const { user, signOut } = useAuth()

@@ -38,6 +38,9 @@ export function WardrobePage() {
   }
   const { items, setItems, addItem, updateItem, removeItem, toggleFavourite, activeCategory, setActiveCategory } =
     useWardrobeStore()
+  const { collections, activeCollectionId, createCollection, selectCollection } = useKlosetStore()
+  const [creatingKloset, setCreatingKloset] = useState(false)
+  const [newKlosetName, setNewKlosetName] = useState('')
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editItem, setEditItem] = useState<ClothingItem | undefined>()
@@ -146,6 +149,18 @@ export function WardrobePage() {
   }
 
   const name = profile?.name?.split(' ')[0] ?? 'Your'
+  const mainKlosetName = `${name}'s Kloset`
+  const handleSelectKloset = (id: string) => {
+    selectCollection(id)
+    setCreatingKloset(false)
+  }
+  const handleCreateKloset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (createCollection(newKlosetName)) {
+      setNewKlosetName('')
+      setCreatingKloset(false)
+    }
+  }
   return (
     <div className="min-h-screen bg-warm-cream pt-16 lg:pt-20 pb-28 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

@@ -80,7 +80,6 @@ export function DiscoverPage() {
     }
   }
 
-  const activeMode = MODES.find((m) => m.id === mode)!
   const isEmpty = pieces.length === 0
   // New pieces open with the best matches for this user; everything else follows.
   const suggested = mode === 'piece' ? pieces.slice(0, SUGGESTED_COUNT) : []
