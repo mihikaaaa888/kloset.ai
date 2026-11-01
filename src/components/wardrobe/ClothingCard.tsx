@@ -55,19 +55,11 @@ export function ClothingCard({ item, onClick, onToggleFavourite, onStyleThis, on
             {item.brand && <> · {item.brand}</>}
           </p>
           <h3 className="font-display text-lg leading-snug text-text-primary mt-1 truncate">{item.name}</h3>
-          <div className="flex items-center gap-1 mt-2">
-            {item.colour.slice(0, 4).map((c) => (
-              <span
-                key={c}
-                title={c}
-                className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10"
-                style={{ backgroundColor: colourNameToHex(c) }}
-              />
-            ))}
-            {item.timesWorn > 0 && (
+          {item.timesWorn > 0 && (
+            <div className="flex items-center gap-1 mt-2">
               <span className="ml-auto text-2xs text-text-muted tabular-nums">Worn {item.timesWorn}×</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </button>
 
